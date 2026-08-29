@@ -25,6 +25,7 @@ type PlaybackState = {
   seek: (seconds: number) => void;
   setVolume: (v: number) => void;
   addToQueue: (track: Track) => void;
+  removeTrack: (id: string) => void;
 };
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => {
@@ -107,6 +108,42 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       } else {
         set({ queue: [...queue, track] });
       }
+    },
+
+    // Called after a track is deleted from the library, so a currently-loaded
+    // (or merely queued) copy of it doesn't linger in playback state.
+    removeTrack: (id) => {
+      const { queue, currentTrack, index } = get();
+      const removedAt = queue.findIndex((t) => t.id === id);
+      if (removedAt === -1) return; // not in this queue — nothing to do
+
+      const newQueue = queue.filter((t) => t.id !== id);
+
+      if (currentTrack?.id !== id) {
+        // Removing an unrelated queue entry — just shift the current index
+        // down if the removed track sat before it.
+        set({ queue: newQueue, index: removedAt < index ? index - 1 : index });
+        return;
+      }
+
+      if (newQueue.length === 0) {
+        audioEngine.pause();
+        audioEngine.load("");
+        set({
+          currentTrack: null,
+          queue: [],
+          index: -1,
+          isPlaying: false,
+          buffering: false,
+          currentTime: 0,
+          duration: 0,
+          error: null,
+        });
+        return;
+      }
+
+      // The next track slides into the removed one's position; clamp at the end.
+      loadIndex(Math.min(removedAt, newQueue.length - 1), newQueue);
     },
   };
 });

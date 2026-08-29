@@ -127,6 +127,18 @@ export async function getTrack(id: string): Promise<TrackRow | undefined> {
   return (result.rows[0] as unknown as TrackRow) ?? undefined;
 }
 
+/**
+ * Delete a track row (album_tracks memberships cascade away via the FK).
+ * Returns the deleted row so the caller can clean up its storage objects —
+ * undefined if the track didn't exist.
+ */
+export async function deleteTrack(id: string): Promise<TrackRow | undefined> {
+  const row = await getTrack(id);
+  if (!row) return undefined;
+  await db.execute({ sql: "DELETE FROM tracks WHERE id = ?", args: [id] });
+  return row;
+}
+
 /** Update the user-editable metadata fields. Only provided fields change. */
 export async function updateTrackMetadata(
   id: string,

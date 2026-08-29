@@ -6,10 +6,11 @@ type Props = {
   tracks: Track[];
   onEdit: (track: Track) => void;
   onAddToAlbum: (track: Track) => void;
+  onDelete: (track: Track) => void;
 };
 
 /** List (row) presentation of the library. Rows are click-to-play. */
-export default function TrackList({ tracks, onEdit, onAddToAlbum }: Props) {
+export default function TrackList({ tracks, onEdit, onAddToAlbum, onDelete }: Props) {
   const currentId = usePlaybackStore((s) => s.currentTrack?.id);
   const playTrack = usePlaybackStore((s) => s.playTrack);
   const addToQueue = usePlaybackStore((s) => s.addToQueue);
@@ -79,6 +80,17 @@ export default function TrackList({ tracks, onEdit, onAddToAlbum }: Props) {
                 className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
               >
                 Edit
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(track);
+                }}
+                title="Delete track"
+                aria-label="Delete track"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-sm text-white/70 hover:bg-red-500/10 hover:text-red-300"
+              >
+                🗑
               </button>
             </div>
           </li>

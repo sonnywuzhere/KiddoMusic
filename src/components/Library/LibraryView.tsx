@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getTracks, type SortKey, type SortOrder } from "../../api/client";
+import { getTracks, deleteTrack, type SortKey, type SortOrder } from "../../api/client";
 import type { Track } from "../../types";
+import { usePlaybackStore } from "../../store/playbackStore";
 import UploadZone from "../Upload/UploadZone";
 import TrackList from "./TrackList";
 import TrackGrid from "./TrackGrid";
@@ -30,6 +31,8 @@ export default function LibraryView() {
   const [view, setView] = useState<ViewMode>("grid");
   const [editing, setEditing] = useState<Track | null>(null);
   const [addingToAlbum, setAddingToAlbum] = useState<Track | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const removeFromPlayback = usePlaybackStore((s) => s.removeTrack);
 
   // Debounce the search box so we don't hit the server on every keystroke.
   useEffect(() => {
@@ -58,6 +61,19 @@ export default function LibraryView() {
   // Keep a stable ref for onUploaded so UploadZone doesn't re-run effects.
   const reloadRef = useRef(reload);
   reloadRef.current = reload;
+
+  async function handleDelete(track: Track) {
+    if (!window.confirm(`Delete “${track.title}”? This removes the file permanently.`))
+      return;
+    setDeleteError(null);
+    try {
+      await deleteTrack(track.id);
+      setTracks((prev) => prev.filter((t) => t.id !== track.id));
+      removeFromPlayback(track.id);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Couldn't delete track.");
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,6 +132,10 @@ export default function LibraryView() {
           </div>
         </div>
 
+        {deleteError && (
+          <p className="mb-3 text-sm text-red-400">{deleteError}</p>
+        )}
+
         {/* Content */}
         {loading ? (
           <LibrarySkeleton view={view} />
@@ -139,12 +159,14 @@ export default function LibraryView() {
             tracks={tracks}
             onEdit={setEditing}
             onAddToAlbum={setAddingToAlbum}
+            onDelete={(track) => void handleDelete(track)}
           />
         ) : (
           <TrackList
             tracks={tracks}
             onEdit={setEditing}
             onAddToAlbum={setAddingToAlbum}
+            onDelete={(track) => void handleDelete(track)}
           />
         )}
       </section>

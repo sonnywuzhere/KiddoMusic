@@ -6,10 +6,11 @@ type Props = {
   tracks: Track[];
   onEdit: (track: Track) => void;
   onAddToAlbum: (track: Track) => void;
+  onDelete: (track: Track) => void;
 };
 
 /** Artwork-forward grid presentation of the library. Cards are click-to-play. */
-export default function TrackGrid({ tracks, onEdit, onAddToAlbum }: Props) {
+export default function TrackGrid({ tracks, onEdit, onAddToAlbum, onDelete }: Props) {
   const currentId = usePlaybackStore((s) => s.currentTrack?.id);
   const playTrack = usePlaybackStore((s) => s.playTrack);
 
@@ -50,6 +51,17 @@ export default function TrackGrid({ tracks, onEdit, onAddToAlbum }: Props) {
                   className="rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 backdrop-blur-sm hover:bg-black/80"
                 >
                   Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(track);
+                  }}
+                  title="Delete track"
+                  aria-label="Delete track"
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-black/60 text-xs text-white/80 backdrop-blur-sm hover:bg-red-500/70"
+                >
+                  🗑
                 </button>
               </div>
 

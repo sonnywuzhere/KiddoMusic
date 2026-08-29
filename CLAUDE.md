@@ -177,6 +177,19 @@ music-player/
 
 ---
 
+### Track Deletion (Added Feature)
+*(Added feature — a track has never been fully removable before this; only rename/edit and album-membership removal existed. Built after Custom Albums. Not yet in PRD.md — consider adding to PRD Section 7 if treated as core v1 scope.)*
+
+- [x] `DELETE /api/tracks/:id` — deletes the DB row (`album_tracks` memberships cascade via the existing FK) and best-effort removes the audio + artwork objects from R2
+- [x] Client `deleteTrack` API helper (`src/api/client.ts`)
+- [x] Delete action (🗑) on library tracks in both `TrackList` and `TrackGrid`, confirm-before-delete via `window.confirm` (matches the existing album-delete pattern in `AlbumDetail`)
+- [x] `playbackStore.removeTrack` — if the deleted track is currently loaded, stops playback cleanly (empty queue) or slides the next queued track into its place; otherwise just drops it from the queue and fixes up the current index
+- [x] Edge cases: track belongs to one or more albums (memberships cascade, album cover/track-count reflect it next load), track is mid-playback when deleted, track is the last one in the library, storage object already missing (delete still succeeds — DB row is authoritative)
+
+**Done when:** you can delete a track from the library and it's gone from disk, the DB, any albums, and — if it was playing — playback stops or advances cleanly. ✅ Verified via curl (DELETE returns 204, re-GET 404, second DELETE 404) and in the browser (delete while a track is playing advances/stops correctly, delete from grid and list, no console errors).
+
+---
+
 ### Phase 6 — Groundwork for v2 (optional, do not block v1 on this)
 *(PRD Section 9)*
 
@@ -254,5 +267,11 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **Client:** `components/Albums/` — `AlbumsView` (list↔detail nav), `AlbumCard`, `AlbumDetail` (play/rename/delete + per-row move-up/down + remove, optimistic reorder), `CreateAlbumModal`, `AddToAlbumModal` (picker + create-new, used from the library). `App` now has Library/Albums nav tabs. `TrackList`/`TrackGrid` gained a ♫ "Add to album" action next to Edit. `api/albums.ts` wraps the endpoints; `asError` exported from `api/client.ts` for reuse.
 - **Playback:** "Play album" and clicking a track in the detail both call the existing `playbackStore.playTrack(track, album.tracks)` so the album becomes the queue — no new playback code. Deleting the currently-playing album doesn't stop playback (the queue is a store copy).
 - **Note:** this feature is not yet reflected in `PRD.md`. If it's core v1 scope rather than an add-on, add it to PRD Section 7.
+
+**Track Deletion (complete; built after Custom Albums)**
+- **Server:** `deleteTrack(id)` in `db.ts` fetches the row, deletes it (`album_tracks` rows cascade via the existing `ON DELETE CASCADE` FK — no extra cleanup code needed), and returns the deleted row so the route knows which storage objects to remove. `DELETE /api/tracks/:id` in `routes/tracks.ts` calls it, 404s if the track never existed, then `Promise.allSettled`s the R2 object deletes (audio + artwork if present) — storage cleanup is best-effort since the DB row (the source of truth for "does this track exist") is already gone by that point, so a stray/missing object shouldn't turn a successful delete into an error response.
+- **Client:** `deleteTrack(id)` added to `api/client.ts`. `LibraryView` owns the confirm dialog (mirrors `AlbumDetail`'s `handleDelete` pattern) and a small red error banner; on success it filters the track out of local state and calls the new `playbackStore.removeTrack(id)`.
+- **`playbackStore.removeTrack`:** handles three cases — the id isn't in the current queue (no-op), it's queued but not playing (drop it, shift `index` if the removal was before the current position), or it *is* the current track (load whatever slides into its slot, or fully clear playback state if the queue is now empty). Reuses the existing `loadIndex` helper.
+- **Decision — no undo/soft-delete:** deletion is immediate and permanent (matches the PRD's single-user, personal-app framing); the confirm dialog is the only safety net, consistent with album deletion elsewhere in the app.
 
 **Next:** Phase 6 (optional, non-blocking) — v2 groundwork: DB room for future fields (notes, lyrics, mood tags), analyser already exposed via `getAnalyser()`, storage layer swappable for cloud. Then release prep.

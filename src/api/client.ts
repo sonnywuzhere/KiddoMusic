@@ -47,6 +47,11 @@ export async function updateTrack(
   return body.track;
 }
 
+export async function deleteTrack(id: string): Promise<void> {
+  const res = await fetch(`/api/tracks/${id}`, { method: "DELETE" });
+  if (!res.ok) return asError(res);
+}
+
 /**
  * Upload files with progress. Uses XMLHttpRequest because fetch() can't report
  * upload progress. Resolves with created tracks + per-file errors; rejects only

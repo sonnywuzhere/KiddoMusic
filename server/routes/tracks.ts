@@ -3,10 +3,12 @@ import {
   listTracks,
   getTrack,
   updateTrackMetadata,
+  deleteTrack,
   type SortKey,
   type SortOrder,
 } from "../db.ts";
 import { toApiTrack } from "../serialize.ts";
+import { audioKey, artworkKey, deleteObject } from "../storage/r2.ts";
 
 export const tracksRouter = Router();
 
@@ -74,6 +76,27 @@ tracksRouter.patch("/tracks/:id", async (req, res, next) => {
       return;
     }
     res.json({ track: toApiTrack(updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/tracks/:id — remove a track entirely: DB row (any album
+// memberships cascade), plus its audio + artwork objects in R2.
+tracksRouter.delete("/tracks/:id", async (req, res, next) => {
+  try {
+    const row = await deleteTrack(req.params.id);
+    if (!row) {
+      res.status(404).json({ error: "Track not found." });
+      return;
+    }
+    // The DB row is already gone — the delete has succeeded from the
+    // client's perspective — so storage cleanup is best-effort from here.
+    await Promise.allSettled([
+      deleteObject(audioKey(row.file_path)),
+      row.artwork_path ? deleteObject(artworkKey(row.artwork_path)) : Promise.resolve(),
+    ]);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
