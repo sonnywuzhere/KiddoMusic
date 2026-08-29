@@ -33,8 +33,8 @@ export async function extractMetadata(
 }
 
 /** Map an image mime type to a file extension for saved artwork. */
-export function imageExtension(format: string): string {
-  switch (format.toLowerCase()) {
+export function imageExtension(format: string | undefined): string {
+  switch ((format ?? "").toLowerCase()) {
     case "image/jpeg":
     case "image/jpg":
       return "jpg";

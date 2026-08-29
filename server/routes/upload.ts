@@ -62,11 +62,16 @@ uploadRouter.post("/upload", upload.array("files"), async (req, res) => {
     try {
       const meta = await extractMetadata(audioPath);
 
-      // Persist embedded artwork, if any.
+      // Persist embedded artwork, if any. A problem with the image must not
+      // fail the whole track — save it without artwork instead.
       let artworkFilename: string | null = null;
       if (meta.picture) {
-        artworkFilename = `${basename(file.filename, extname(file.filename))}.${imageExtension(meta.picture.format)}`;
-        await writeFile(join(artworkDir, artworkFilename), meta.picture.data);
+        try {
+          artworkFilename = `${basename(file.filename, extname(file.filename))}.${imageExtension(meta.picture.format)}`;
+          await writeFile(join(artworkDir, artworkFilename), meta.picture.data);
+        } catch {
+          artworkFilename = null;
+        }
       }
 
       // Fallback title: original filename without extension.

@@ -82,7 +82,13 @@ export function uploadTracks(
         reject(new Error(msg));
       }
     };
-    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          "Couldn't reach the server. Make sure the dev server is running (npm run dev) — you should see \"[server] KiddoMusic API listening\" in the terminal.",
+        ),
+      );
+    xhr.ontimeout = () => reject(new Error("Upload timed out."));
     xhr.send(form);
   });
 }
