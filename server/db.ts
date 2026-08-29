@@ -52,6 +52,23 @@ export function initDb(): void {
       date_added   INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_tracks_date_added ON tracks(date_added);
+
+    -- User-created albums (grouping only; independent of the embedded album tag).
+    CREATE TABLE IF NOT EXISTS albums (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    -- Many-to-many: a track can live in multiple albums. ON DELETE CASCADE
+    -- cleans up memberships when either an album or a track is deleted.
+    CREATE TABLE IF NOT EXISTS album_tracks (
+      album_id TEXT NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      PRIMARY KEY (album_id, track_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_album_tracks_album ON album_tracks(album_id, position);
   `);
 }
 
@@ -136,3 +153,123 @@ export function updateTrackMetadata(
   ).run(next);
   return getTrack(id);
 }
+
+// ---------------------------------------------------------------------------
+// Custom albums (user-created track collections)
+// ---------------------------------------------------------------------------
+
+export type AlbumRow = {
+  id: string;
+  name: string;
+  created_at: number;
+};
+
+export type AlbumSummary = AlbumRow & {
+  track_count: number;
+  cover_artwork_path: string | null; // first track (by position) that has art
+};
+
+export function createAlbum(id: string, name: string, createdAt: number): AlbumRow {
+  db.prepare(
+    "INSERT INTO albums (id, name, created_at) VALUES (?, ?, ?)",
+  ).run(id, name, createdAt);
+  return { id, name, created_at: createdAt };
+}
+
+export function getAlbum(id: string): AlbumRow | undefined {
+  return db.prepare("SELECT * FROM albums WHERE id = ?").get(id) as
+    | AlbumRow
+    | undefined;
+}
+
+export function listAlbums(): AlbumSummary[] {
+  const albums = db
+    .prepare("SELECT * FROM albums ORDER BY created_at DESC")
+    .all() as AlbumRow[];
+  const countStmt = db.prepare(
+    "SELECT COUNT(*) AS c FROM album_tracks WHERE album_id = ?",
+  );
+  const coverStmt = db.prepare(`
+    SELECT t.artwork_path AS p
+    FROM album_tracks at JOIN tracks t ON t.id = at.track_id
+    WHERE at.album_id = ? AND t.artwork_path IS NOT NULL
+    ORDER BY at.position ASC LIMIT 1
+  `);
+  return albums.map((a) => ({
+    ...a,
+    track_count: (countStmt.get(a.id) as { c: number }).c,
+    cover_artwork_path:
+      ((coverStmt.get(a.id) as { p: string } | undefined)?.p) ?? null,
+  }));
+}
+
+export function renameAlbum(id: string, name: string): AlbumRow | undefined {
+  const info = db
+    .prepare("UPDATE albums SET name = ? WHERE id = ?")
+    .run(name, id);
+  return info.changes > 0 ? getAlbum(id) : undefined;
+}
+
+export function deleteAlbum(id: string): boolean {
+  // album_tracks rows cascade away; the tracks themselves are untouched.
+  return db.prepare("DELETE FROM albums WHERE id = ?").run(id).changes > 0;
+}
+
+/** Tracks in an album, ordered by their stored position. */
+export function getAlbumTracks(albumId: string): TrackRow[] {
+  return db
+    .prepare(`
+      SELECT t.* FROM album_tracks at
+      JOIN tracks t ON t.id = at.track_id
+      WHERE at.album_id = ?
+      ORDER BY at.position ASC
+    `)
+    .all(albumId) as TrackRow[];
+}
+
+/**
+ * Append the given tracks to an album (skipping ones that don't exist or are
+ * already members). Returns the number actually added.
+ */
+export const addTracksToAlbum = db.transaction(
+  (albumId: string, trackIds: string[]): number => {
+    const maxRow = db
+      .prepare("SELECT MAX(position) AS m FROM album_tracks WHERE album_id = ?")
+      .get(albumId) as { m: number | null };
+    let pos = maxRow.m ?? -1;
+    const exists = db.prepare("SELECT 1 FROM tracks WHERE id = ?");
+    const member = db.prepare(
+      "SELECT 1 FROM album_tracks WHERE album_id = ? AND track_id = ?",
+    );
+    const insert = db.prepare(
+      "INSERT INTO album_tracks (album_id, track_id, position) VALUES (?, ?, ?)",
+    );
+    let added = 0;
+    for (const tid of trackIds) {
+      if (!exists.get(tid)) continue;
+      if (member.get(albumId, tid)) continue;
+      pos++;
+      insert.run(albumId, tid, pos);
+      added++;
+    }
+    return added;
+  },
+);
+
+export function removeTrackFromAlbum(albumId: string, trackId: string): boolean {
+  return (
+    db
+      .prepare("DELETE FROM album_tracks WHERE album_id = ? AND track_id = ?")
+      .run(albumId, trackId).changes > 0
+  );
+}
+
+/** Set the full track order for an album (ids not in the album are ignored). */
+export const reorderAlbumTracks = db.transaction(
+  (albumId: string, orderedTrackIds: string[]): void => {
+    const update = db.prepare(
+      "UPDATE album_tracks SET position = ? WHERE album_id = ? AND track_id = ?",
+    );
+    orderedTrackIds.forEach((tid, i) => update.run(i, albumId, tid));
+  },
+);

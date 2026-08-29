@@ -2,7 +2,7 @@ import type { Track, UploadError } from "../types";
 
 export type UploadResult = { tracks: Track[]; errors: UploadError[] };
 
-async function asError(res: Response): Promise<never> {
+export async function asError(res: Response): Promise<never> {
   let message = `Request failed (HTTP ${res.status})`;
   try {
     const body = await res.json();

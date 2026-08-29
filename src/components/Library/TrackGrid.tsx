@@ -5,10 +5,11 @@ import { usePlaybackStore } from "../../store/playbackStore";
 type Props = {
   tracks: Track[];
   onEdit: (track: Track) => void;
+  onAddToAlbum: (track: Track) => void;
 };
 
 /** Artwork-forward grid presentation of the library. Cards are click-to-play. */
-export default function TrackGrid({ tracks, onEdit }: Props) {
+export default function TrackGrid({ tracks, onEdit, onAddToAlbum }: Props) {
   const currentId = usePlaybackStore((s) => s.currentTrack?.id);
   const playTrack = usePlaybackStore((s) => s.playTrack);
 
@@ -29,15 +30,28 @@ export default function TrackGrid({ tracks, onEdit }: Props) {
             >
               <Cover track={track} />
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(track);
-                }}
-                className="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
-              >
-                Edit
-              </button>
+              <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToAlbum(track);
+                  }}
+                  title="Add to album"
+                  aria-label="Add to album"
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-black/60 text-xs text-white/80 backdrop-blur-sm hover:bg-black/80"
+                >
+                  ♫
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(track);
+                  }}
+                  className="rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 backdrop-blur-sm hover:bg-black/80"
+                >
+                  Edit
+                </button>
+              </div>
 
               {track.duration != null && (
                 <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] tabular-nums text-white/80 backdrop-blur-sm">

@@ -11,3 +11,20 @@ export type Track = {
 };
 
 export type UploadError = { filename: string; error: string };
+
+/** A user-created album (summary, for list/cards). */
+export type Album = {
+  id: string;
+  name: string;
+  createdAt: number;
+  trackCount: number;
+  coverUrl: string | null;
+};
+
+/** Album detail with its ordered tracks. */
+export type AlbumDetail = {
+  id: string;
+  name: string;
+  createdAt: number;
+  tracks: Track[];
+};

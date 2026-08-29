@@ -7,6 +7,7 @@ import TrackGrid from "./TrackGrid";
 import EditMetadataModal from "./EditMetadataModal";
 import LibrarySkeleton from "./LibrarySkeleton";
 import EmptyLibrary from "./EmptyLibrary";
+import AddToAlbumModal from "../Albums/AddToAlbumModal";
 
 type ViewMode = "grid" | "list";
 
@@ -28,6 +29,7 @@ export default function LibraryView() {
   const [order, setOrder] = useState<SortOrder>("desc");
   const [view, setView] = useState<ViewMode>("grid");
   const [editing, setEditing] = useState<Track | null>(null);
+  const [addingToAlbum, setAddingToAlbum] = useState<Track | null>(null);
 
   // Debounce the search box so we don't hit the server on every keystroke.
   useEffect(() => {
@@ -133,9 +135,17 @@ export default function LibraryView() {
         ) : isEmpty ? (
           <EmptyLibrary searchTerm={searchActive ? debouncedSearch : undefined} />
         ) : view === "grid" ? (
-          <TrackGrid tracks={tracks} onEdit={setEditing} />
+          <TrackGrid
+            tracks={tracks}
+            onEdit={setEditing}
+            onAddToAlbum={setAddingToAlbum}
+          />
         ) : (
-          <TrackList tracks={tracks} onEdit={setEditing} />
+          <TrackList
+            tracks={tracks}
+            onEdit={setEditing}
+            onAddToAlbum={setAddingToAlbum}
+          />
         )}
       </section>
 
@@ -148,6 +158,13 @@ export default function LibraryView() {
               prev.map((t) => (t.id === updated.id ? updated : t)),
             );
           }}
+        />
+      )}
+
+      {addingToAlbum && (
+        <AddToAlbumModal
+          track={addingToAlbum}
+          onClose={() => setAddingToAlbum(null)}
         />
       )}
     </div>

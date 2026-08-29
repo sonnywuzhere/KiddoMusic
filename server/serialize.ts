@@ -1,4 +1,4 @@
-import type { TrackRow } from "./db.ts";
+import type { TrackRow, AlbumSummary, AlbumRow } from "./db.ts";
 
 /** The track shape sent to the client — bare filenames resolved to URLs. */
 export type ApiTrack = {
@@ -22,5 +22,46 @@ export function toApiTrack(row: TrackRow): ApiTrack {
     artworkUrl: row.artwork_path ? `/api/artwork/${row.artwork_path}` : null,
     streamUrl: `/api/stream/${row.id}`,
     dateAdded: row.date_added,
+  };
+}
+
+/** Album summary for list/card views. */
+export type ApiAlbum = {
+  id: string;
+  name: string;
+  createdAt: number;
+  trackCount: number;
+  coverUrl: string | null;
+};
+
+export function toApiAlbum(row: AlbumSummary): ApiAlbum {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    trackCount: row.track_count,
+    coverUrl: row.cover_artwork_path
+      ? `/api/artwork/${row.cover_artwork_path}`
+      : null,
+  };
+}
+
+/** Album detail (metadata + ordered tracks). */
+export type ApiAlbumDetail = {
+  id: string;
+  name: string;
+  createdAt: number;
+  tracks: ApiTrack[];
+};
+
+export function toApiAlbumDetail(
+  row: AlbumRow,
+  tracks: TrackRow[],
+): ApiAlbumDetail {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    tracks: tracks.map(toApiTrack),
   };
 }

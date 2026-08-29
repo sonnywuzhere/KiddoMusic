@@ -5,10 +5,11 @@ import { usePlaybackStore } from "../../store/playbackStore";
 type Props = {
   tracks: Track[];
   onEdit: (track: Track) => void;
+  onAddToAlbum: (track: Track) => void;
 };
 
 /** List (row) presentation of the library. Rows are click-to-play. */
-export default function TrackList({ tracks, onEdit }: Props) {
+export default function TrackList({ tracks, onEdit, onAddToAlbum }: Props) {
   const currentId = usePlaybackStore((s) => s.currentTrack?.id);
   const playTrack = usePlaybackStore((s) => s.playTrack);
   const addToQueue = usePlaybackStore((s) => s.addToQueue);
@@ -58,6 +59,17 @@ export default function TrackList({ tracks, onEdit }: Props) {
                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-sm text-white/70 hover:bg-white/5"
               >
                 +
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToAlbum(track);
+                }}
+                title="Add to album"
+                aria-label="Add to album"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-sm text-white/70 hover:bg-white/5"
+              >
+                ♫
               </button>
               <button
                 onClick={(e) => {

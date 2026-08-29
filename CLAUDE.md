@@ -154,6 +154,29 @@ music-player/
 
 ---
 
+### Phase 4 — Custom Albums (Organization) ✅ COMPLETE
+*(Added feature from the updated plan. Shares the "Phase 4" label but is distinct from the Now Playing Takeover above; built after Phase 5. Not yet in PRD.md — consider adding to PRD Section 7 if treated as core v1 scope. A track can belong to multiple albums.)*
+
+- [x] DB schema: `albums` (id, name, created_at) + `album_tracks` join (album_id, track_id, position) with `ON DELETE CASCADE` both ways
+- [x] `POST /api/albums` — create (name only, no tracks required)
+- [x] `GET /api/albums` — list all (summaries: track count + cover from first track's art)
+- [x] `GET /api/albums/:id` — detail + tracks ordered by position
+- [x] `PATCH /api/albums/:id` — rename
+- [x] `DELETE /api/albums/:id` — delete grouping only (tracks untouched)
+- [x] `POST /api/albums/:id/tracks` — add one or many (dedupe + skip nonexistent)
+- [x] `DELETE /api/albums/:id/tracks/:trackId` — remove from album
+- [x] `PATCH /api/albums/:id/order` — reorder (extra endpoint for the detail view's up/down)
+- [x] "Create Album" UI — name-only modal (`CreateAlbumModal`)
+- [x] Albums list view (`components/Albums/`) — cards using the first track's artwork, Library/Albums nav tabs in `App`
+- [x] Album detail view — ordered tracks, play/rename/delete, per-track remove + move up/down
+- [x] "Add to Album" action on library tracks (♫) — picker of existing albums + create-new (`AddToAlbumModal`)
+- [x] "Play album" — loads the album's tracks into the queue via `playbackStore.playTrack`
+- [x] Edge cases: delete album (tracks survive), delete track (CASCADE clears memberships), empty album (message + disabled Play)
+
+**Done when:** you can create a named album, add existing tracks to it from the library, and hit play on the album to queue it through the mini-player. ✅ Verified end-to-end in the browser — create-and-add via the picker, album card with cover, play-album queues all tracks, reorder/remove persist to the server, rename, and delete (tracks survive). Full API lifecycle also verified via curl (create/validate/add/dedupe/list/reorder/remove/rename/delete). No console errors.
+
+---
+
 ### Phase 6 — Groundwork for v2 (optional, do not block v1 on this)
 *(PRD Section 9)*
 
@@ -225,4 +248,11 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **Responsive:** confirmed at 375px — the library toolbar already flex-wraps, grid is 2-col on mobile, the mini-player hides time (<sm) and volume (<md), and the takeover hero/scrub/transport fit.
 - **Performance:** `Backdrop` uses Framer's `useReducedMotion` to freeze the drifting blobs when the OS requests reduced motion, and sets `will-change: transform` so the blobs composite on the GPU. Blob motion is transform-only (no layout/paint thrash).
 
-**Next:** Phase 6 (optional, non-blocking) — v2 groundwork: confirm the DB schema has room for future fields (notes, lyrics, mood tags) without a painful migration, keep the AudioEngine's analyser accessible for audio-reactive visuals (already exposed via `getAnalyser()`), and keep the storage layer swappable for cloud storage. Then Phase 9: App Store / release prep.
+**Phase 4 — Custom Albums (complete; built after Phase 5)**
+- **Data model:** two new tables — `albums` and an `album_tracks` join carrying `position`. Membership is many-to-many (a track can be in multiple albums). `ON DELETE CASCADE` on both FKs means deleting an album drops its memberships (tracks untouched) and deleting a track (no endpoint yet, but structurally ready) drops its memberships. `foreign_keys = ON` was already set.
+- **Server:** `server/routes/albums.ts` mounted under `/api`. Full REST surface per the spec plus a `PATCH /albums/:id/order` reorder endpoint. Add is idempotent (skips duplicates via the composite PK and skips nonexistent track ids); positions are append-at-end and reassigned by index on reorder. `db.ts` gained album helpers (`addTracksToAlbum`/`reorderAlbumTracks` are `db.transaction`s); `serialize.ts` gained `toApiAlbum`/`toApiAlbumDetail` (cover = first track-by-position with art).
+- **Client:** `components/Albums/` — `AlbumsView` (list↔detail nav), `AlbumCard`, `AlbumDetail` (play/rename/delete + per-row move-up/down + remove, optimistic reorder), `CreateAlbumModal`, `AddToAlbumModal` (picker + create-new, used from the library). `App` now has Library/Albums nav tabs. `TrackList`/`TrackGrid` gained a ♫ "Add to album" action next to Edit. `api/albums.ts` wraps the endpoints; `asError` exported from `api/client.ts` for reuse.
+- **Playback:** "Play album" and clicking a track in the detail both call the existing `playbackStore.playTrack(track, album.tracks)` so the album becomes the queue — no new playback code. Deleting the currently-playing album doesn't stop playback (the queue is a store copy).
+- **Note:** this feature is not yet reflected in `PRD.md`. If it's core v1 scope rather than an add-on, add it to PRD Section 7.
+
+**Next:** Phase 6 (optional, non-blocking) — v2 groundwork: DB room for future fields (notes, lyrics, mood tags), analyser already exposed via `getAnalyser()`, storage layer swappable for cloud. Then release prep.
