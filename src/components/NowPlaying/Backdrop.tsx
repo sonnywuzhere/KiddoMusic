@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { Palette, RGB } from "../../engine/colorExtraction";
 import { rgbString } from "../../engine/colorExtraction";
 
@@ -23,6 +23,9 @@ const BLOB_LAYOUTS = [
  * A dark gradient overlay keeps foreground text legible.
  */
 export default function Backdrop({ artworkUrl, palette }: Props) {
+  // Respect the OS "reduce motion" setting — freeze the drifting blobs.
+  const reduceMotion = useReducedMotion();
+
   const colors: RGB[] =
     palette.colors.length >= 3
       ? palette.colors
@@ -59,8 +62,9 @@ export default function Backdrop({ artworkUrl, palette }: Props) {
               0.55,
             )} 0%, transparent 65%)`,
             mixBlendMode: "screen",
+            willChange: "transform",
           }}
-          animate={{ x: b.x, y: b.y }}
+          animate={reduceMotion ? undefined : { x: b.x, y: b.y }}
           transition={{
             duration: 22 + i * 5,
             repeat: Infinity,

@@ -23,6 +23,7 @@ const IDLE_MS = 3000;
 export default function NowPlayingTakeover({ onClose }: Props) {
   const currentTrack = usePlaybackStore((s) => s.currentTrack);
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
+  const error = usePlaybackStore((s) => s.error);
 
   const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -149,6 +150,11 @@ export default function NowPlayingTakeover({ onClose }: Props) {
             {title}
           </h1>
           <p className={`mt-3 text-lg ${textColor}/60`}>{artist}</p>
+          {error && (
+            <p className="mt-4 rounded-lg bg-red-500/20 px-3 py-1.5 text-sm text-red-200 backdrop-blur-sm">
+              {error}
+            </p>
+          )}
         </TrackTransition>
       </div>
 

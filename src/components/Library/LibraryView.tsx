@@ -5,6 +5,8 @@ import UploadZone from "../Upload/UploadZone";
 import TrackList from "./TrackList";
 import TrackGrid from "./TrackGrid";
 import EditMetadataModal from "./EditMetadataModal";
+import LibrarySkeleton from "./LibrarySkeleton";
+import EmptyLibrary from "./EmptyLibrary";
 
 type ViewMode = "grid" | "list";
 
@@ -114,15 +116,22 @@ export default function LibraryView() {
 
         {/* Content */}
         {loading ? (
-          <p className="py-10 text-center text-sm text-white/40">Loading…</p>
+          <LibrarySkeleton view={view} />
         ) : error ? (
-          <p className="py-10 text-center text-sm text-red-400">{error}</p>
+          <div className="py-16 text-center">
+            <p className="text-sm text-red-400">{error}</p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                void reload();
+              }}
+              className="mt-3 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+            >
+              Try again
+            </button>
+          </div>
         ) : isEmpty ? (
-          <p className="py-10 text-center text-sm text-white/40">
-            {searchActive
-              ? `No tracks match “${debouncedSearch}”.`
-              : "No tracks yet. Upload some audio to get started."}
-          </p>
+          <EmptyLibrary searchTerm={searchActive ? debouncedSearch : undefined} />
         ) : view === "grid" ? (
           <TrackGrid tracks={tracks} onEdit={setEditing} />
         ) : (

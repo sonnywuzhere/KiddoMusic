@@ -143,12 +143,14 @@ music-player/
 
 ---
 
-### Phase 5 — Polish & Edge Cases
-- [ ] Empty states (no library yet, no track playing)
-- [ ] Loading/skeleton states for library and takeover
-- [ ] Error states (failed upload, corrupt file, playback failure)
-- [ ] Responsive check — confirm takeover and library work at different window sizes
-- [ ] Performance pass — confirm backdrop animation doesn't jank on lower-end hardware
+### Phase 5 — Polish & Edge Cases ✅ COMPLETE
+- [x] Empty states — `EmptyLibrary` (icon + guidance) for no-library and no-search-match; no-track-playing hides the mini-player and gates the takeover
+- [x] Loading/skeleton states — `LibrarySkeleton` (grid/list shimmer) replaces the plain "Loading…"; takeover shows the buffering spinner
+- [x] Error states — failed upload (clear message + per-file errors), library load error (with a Try again button), playback failure surfaced in **both** the mini-player and the takeover (red banner)
+- [x] Responsive check — verified at 375px: library 2-col grid + wrapping toolbar, mini-player (time/volume hidden on narrow), and takeover (hero + scrub + transport all fit)
+- [x] Performance pass — backdrop respects `prefers-reduced-motion` (freezes blob drift) and marks blobs `will-change: transform` (GPU compositing)
+
+**Done when:** app feels finished at the edges. ✅ Verified — empty/loading/error states, mobile layout, and reduced-motion all confirmed in-browser.
 
 ---
 
@@ -217,4 +219,10 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **Analyser** (from Phase 3's `AudioEngine.getAnalyser()`) is available but not yet used — audio-reactive backdrop intensity is a deliberate v2 stretch (PRD §9), not wired in.
 - Dep added: `framer-motion`.
 
-**Next:** Phase 5 — Polish & edge cases: empty/loading/skeleton states, error states (failed upload/corrupt file/playback failure), responsive check (takeover + library at different sizes), and a performance pass on the backdrop animation.
+**Phase 5 — Polish & Edge Cases (complete)**
+- **Empty/loading:** `components/Library/EmptyLibrary.tsx` (distinct copy for empty-library vs no-search-match) and `LibrarySkeleton.tsx` (shimmer matching the active grid/list view). `LibraryView` error branch gained a "Try again" retry.
+- **Error coverage:** upload errors were already handled (Phase-1/patch); added playback-failure surfacing in the takeover (reads `store.error`, red banner under the title) to match the mini-player. Verified by deleting audio files on disk and reloading a track → stream 404 → error shown in both places; the backdrop still renders (art is served separately from audio).
+- **Responsive:** confirmed at 375px — the library toolbar already flex-wraps, grid is 2-col on mobile, the mini-player hides time (<sm) and volume (<md), and the takeover hero/scrub/transport fit.
+- **Performance:** `Backdrop` uses Framer's `useReducedMotion` to freeze the drifting blobs when the OS requests reduced motion, and sets `will-change: transform` so the blobs composite on the GPU. Blob motion is transform-only (no layout/paint thrash).
+
+**Next:** Phase 6 (optional, non-blocking) — v2 groundwork: confirm the DB schema has room for future fields (notes, lyrics, mood tags) without a painful migration, keep the AudioEngine's analyser accessible for audio-reactive visuals (already exposed via `getAnalyser()`), and keep the storage layer swappable for cloud storage. Then Phase 9: App Store / release prep.
