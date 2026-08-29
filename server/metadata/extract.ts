@@ -1,4 +1,4 @@
-import { parseFile } from "music-metadata";
+import { parseBuffer } from "music-metadata";
 
 export type ExtractedMetadata = {
   title: string | null;
@@ -9,15 +9,20 @@ export type ExtractedMetadata = {
 };
 
 /**
- * Read embedded tags (ID3, Vorbis, etc.) from an audio file on disk.
+ * Read embedded tags (ID3, Vorbis, etc.) from an in-memory audio buffer.
  * Returns nulls for anything missing — the upload route decides fallbacks
  * (e.g. title → filename). Never throws for a merely tag-less file; only a
  * genuinely unreadable/corrupt file rejects.
+ *
+ * Takes a buffer (not a file path) because uploads now go straight to R2 —
+ * multer buffers the file in memory rather than writing it to local disk
+ * first, so there's no path to hand `parseFile`.
  */
 export async function extractMetadata(
-  filePath: string,
+  buffer: Buffer,
+  mimeType?: string,
 ): Promise<ExtractedMetadata> {
-  const { common, format } = await parseFile(filePath);
+  const { common, format } = await parseBuffer(buffer, mimeType);
 
   const pic = common.picture?.[0] ?? null;
 

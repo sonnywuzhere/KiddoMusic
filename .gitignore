@@ -3,11 +3,14 @@ dist
 *.local
 .DS_Store
 
-# Server runtime data — uploaded audio, extracted artwork, SQLite DB
-server/storage/
+# Local SQLite (pre-Turso dev fallback, if ever used)
 *.db
 *.db-shm
 *.db-wal
+
+# Secrets
+.env
+.env.local
 
 # Editor
 .vscode/*

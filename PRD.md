@@ -2,7 +2,7 @@
 
 **Status:** Draft v1
 **Owner:** You
-**Last updated:** August 28, 2026
+**Last updated:** August 29, 2026
 
 ---
 
@@ -122,6 +122,15 @@ The takeover experience depends on a functional foundation underneath it:
 ### 7.4 Storage
 - Audio files and metadata persisted (cloud storage + database, or local storage depending on final architecture decision — see Section 10)
 
+### 7.5 Albums (Organization)
+- Manually create named albums/collections to organize the library beyond embedded metadata (e.g. mixes, moods, groupings that don't map to a real "album" tag)
+- A track can belong to multiple albums — membership is many-to-many, not a single-parent relationship
+- Add existing library tracks to one or more albums; remove a track from an album without affecting the track itself or its other memberships
+- Reorder tracks within an album (position is per-album, independent of library sort order)
+- Rename or delete an album; deleting an album removes the grouping only — member tracks and their other album memberships are untouched
+- Album list view (card per album, cover drawn from its first track's artwork) and an album detail view (ordered track list, play/rename/delete, per-track remove/reorder)
+- "Play album" loads the album's tracks into the queue in order, using the same playback engine and queue as the library (Section 7.3) — no separate playback path
+
 ---
 
 ## 8. Success Criteria
@@ -152,9 +161,9 @@ Pulled from the broader brainstorm — not in scope for v1, but the architecture
 ## 10. Open Questions
 
 - **Platform confirmation:** Is web-first the right call, or is a native mobile/desktop app preferred for v1? (Currently assumed: web)
-- **Hosting/storage:** Self-hosted, or a managed backend (e.g., cloud storage + a lightweight database)? Does this need to work across your devices, or is single-device local storage acceptable for v1?
-- **Audience scope:** Strictly personal, or should the data model support inviting others from day one (even if the UI doesn't expose it yet)?
-- **Transition style:** Should v1 ship with one fixed transition style, or a small set of selectable styles?
+- ~~**Hosting/storage:** Self-hosted, or a managed backend (e.g., cloud storage + a lightweight database)?~~ **Decided (Aug 29, 2026):** managed hosting, not self-hosted — the deploy target is a host you don't manage/maintain yourself. Audio/artwork storage moves to a cloud object store; see Build Log for the specific service selection and migration.
+- ~~**Audience scope:** Strictly personal, or should the data model support inviting others from day one?~~ **Decided (Aug 29, 2026):** strictly personal — no `user`/ownership scoping added to the data model for v1. Revisit only if invite/sharing becomes an actual roadmap item; adding it later means a migration (new `users` table + `user_id` FKs on `tracks`/`albums`), which is accepted as a future cost.
+- ~~**Transition style:** Should v1 ship with one fixed transition style, or a small set of selectable styles?~~ **Decided (Aug 29, 2026):** one fixed style only — the crossfade already built in Phase 4 (`AnimatePresence popLayout`). No style picker/settings surface for v1 or planned for v2.
 - **Legal/licensing:** Confirm all uploaded content is music you own or have rights to use, since this stores and plays personal files rather than licensed catalog content.
 
 ---
@@ -167,6 +176,7 @@ Pulled from the broader brainstorm — not in scope for v1, but the architecture
 - Standard playback engine
 - Full-screen Now Playing takeover with color-extracted backdrop, hero typography, and designed track transitions
 - Minimal, auto-hiding playback controls
+- Custom albums — manual, many-to-many organization of the library, independent of embedded metadata
 
 **Out (deferred to v2+):**
 - Lighting integration
