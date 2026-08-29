@@ -132,14 +132,14 @@ music-player/
 ### Phase 4 — Full-Screen "Now Playing" Takeover (Core Feature)
 *(PRD Section 6 — this is the anchor feature, take the most care here)*
 
-- [ ] **4.1 Entry transition** *(PRD 6.1)*: build the expand animation from mini-player → full-screen (art scale/blur, chrome fade) with Framer Motion
-- [ ] **4.2 Backdrop** *(PRD 6.2)*: run color extraction on album art, generate a slow-moving gradient or particle field from the palette
-- [ ] **4.3 Foreground typography** *(PRD 6.3)*: implement hero-style title/artist treatment
-- [ ] **4.4 Track-to-track transitions** *(PRD 6.4)*: implement crossfade/wipe between tracks on skip or auto-advance
-- [ ] **4.5 Controls** *(PRD 6.5)*: build auto-hiding play/pause/scrub/skip controls (fade in on interaction, fade out after idle)
-- [ ] **4.6 State coverage** *(PRD 6.6)*: explicitly test and handle — empty library, loading/buffering, playing, paused, scrubbing, auto-advance, manual skip, exit takeover
+- [x] **4.1 Entry transition** *(PRD 6.1)*: expand from mini-player → full-screen — overlay fade + shared-`layoutId` art morph (mini-player thumb ↔ hero art) via Framer Motion
+- [x] **4.2 Backdrop** *(PRD 6.2)*: color extraction from album art → blurred full-bleed cover + slow-drifting palette-colored blobs
+- [x] **4.3 Foreground typography** *(PRD 6.3)*: hero title/artist, album art present but not dominant
+- [x] **4.4 Track-to-track transitions** *(PRD 6.4)*: crossfade of backdrop + art + text on skip/auto-advance (AnimatePresence)
+- [x] **4.5 Controls** *(PRD 6.5)*: auto-hiding transport (3s idle), reveal on pointer/touch, kept visible while scrubbing; Esc/chevron exit, Space toggles play
+- [x] **4.6 State coverage** *(PRD 6.6)*: empty library (takeover gated on a current track), buffering (spinner), playing/paused, scrubbing, auto-advance, manual skip, exit
 
-**Done when:** starting playback feels like an event — the entry, backdrop, and transitions all read as intentional, not default.
+**Done when:** starting playback feels like an event — the entry, backdrop, and transitions all read as intentional, not default. ✅ Verified with real album-art tracks — backdrop palette adapts per cover (deep red for a neon cover, olive for a kitchen cover), crossfade on skip, auto-hide+reveal, Esc exit preserving playback, no console warnings.
 
 ---
 
@@ -210,4 +210,11 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **`MiniPlayer`:** full transport now — scrub bar (seek), current/total time, volume slider, buffering + error states, prev/play-pause/next. `.mp-range` styling (fill via `--pct`) added to `index.css`. Removed the Phase-2 "audio in Phase 3" stub label. "Add to queue" (+) affordance added to `TrackList` rows.
 - **Gotcha for testing, not a code bug:** creating multiple `AudioContext`s in a page (e.g. ad-hoc console probes) can stall the app's singleton engine; a fresh page load clears it. Real playback is reliable — the earlier "stuck at 0:00" during verification was self-inflicted test pollution.
 
-**Next:** Phase 4 — the full-screen Now Playing takeover (the anchor feature): entry transition from the mini-player, color-extracted backdrop (`engine/colorExtraction.ts`, `node-vibrant`/`colorthief`), hero typography, track-to-track transitions (Framer Motion), auto-hiding controls, and full state coverage. Analyser is already available for optional audio-reactive intensity.
+**Phase 4 — Now Playing Takeover (complete)**
+- **Decision — dependency-free color extraction:** `engine/colorExtraction.ts` extracts the palette on a canvas (downsample to 48×48 → 4-bit/channel histogram → top swatches, dominant + most-saturated accent + isDark) rather than `node-vibrant`/`colorthief`. The artwork is same-origin (Vite proxy), so `getImageData` doesn't taint the canvas, and this sidesteps node-vibrant's ESM/Vite import friction. `DEFAULT_PALETTE` covers art-less tracks.
+- **Components (`components/NowPlaying/`):** `Backdrop` (blurred full-bleed cover + drifting palette blobs w/ `screen` blend + contrast overlay), `Controls` (auto-hiding scrub/transport), `TrackTransition` (AnimatePresence `popLayout` crossfade), `NowPlayingTakeover` (composes them; owns palette extraction, the idle-timer for controls, and Esc/Space keybinds).
+- **Entry/exit:** the mini-player artwork and the takeover hero art share `layoutId="np-art"`, so Framer morphs the thumb into the hero on open and back on close. Overlay fades. `App` gates the takeover on `takeoverOpen && currentTrack` inside `AnimatePresence`, and auto-closes it if playback clears.
+- **Analyser** (from Phase 3's `AudioEngine.getAnalyser()`) is available but not yet used — audio-reactive backdrop intensity is a deliberate v2 stretch (PRD §9), not wired in.
+- Dep added: `framer-motion`.
+
+**Next:** Phase 5 — Polish & edge cases: empty/loading/skeleton states, error states (failed upload/corrupt file/playback failure), responsive check (takeover + library at different sizes), and a performance pass on the backdrop animation.

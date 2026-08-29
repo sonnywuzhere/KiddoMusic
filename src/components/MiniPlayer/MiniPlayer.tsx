@@ -1,12 +1,19 @@
+import { motion } from "framer-motion";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { formatDuration } from "../../utils/format";
 
+type Props = {
+  /** Open the full-screen Now Playing takeover. */
+  onExpand: () => void;
+};
+
 /**
  * Persistent bottom now-playing bar, bound to the real AudioEngine via the
- * store. Lives at the app root so it survives screen changes. Phase 4 makes it
- * the entry point into the full-screen Now Playing takeover.
+ * store. Lives at the app root so it survives screen changes. Clicking the
+ * track info expands into the full-screen Now Playing takeover; the artwork
+ * shares a layoutId with the takeover hero for a morph transition.
  */
-export default function MiniPlayer() {
+export default function MiniPlayer({ onExpand }: Props) {
   const {
     currentTrack,
     isPlaying,
@@ -46,33 +53,46 @@ export default function MiniPlayer() {
       />
 
       <div className="mx-auto flex max-w-3xl items-center gap-4 px-5 py-3">
-        {currentTrack.artworkUrl ? (
-          <img
-            src={currentTrack.artworkUrl}
-            alt=""
-            className="h-12 w-12 flex-none rounded-md object-cover"
-          />
-        ) : (
-          <div className="flex h-12 w-12 flex-none items-center justify-center rounded-md bg-white/5 text-white/30">
-            ♪
-          </div>
-        )}
+        {/* Info area — click to expand into the takeover. */}
+        <button
+          onClick={onExpand}
+          aria-label="Open now playing"
+          className="flex min-w-0 flex-1 items-center gap-4 rounded-lg text-left transition-colors hover:bg-white/5"
+        >
+          {currentTrack.artworkUrl ? (
+            <motion.img
+              layoutId="np-art"
+              src={currentTrack.artworkUrl}
+              alt=""
+              className="h-12 w-12 flex-none rounded-md object-cover"
+            />
+          ) : (
+            <motion.div
+              layoutId="np-art"
+              className="flex h-12 w-12 flex-none items-center justify-center rounded-md bg-white/5 text-white/30"
+            >
+              ♪
+            </motion.div>
+          )}
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">
-            {currentTrack.title}
-          </p>
-          <p className="truncate text-xs text-white/50">
-            {error ? (
-              <span className="text-red-400">{error}</span>
-            ) : (
-              <>
-                {currentTrack.artist || "Unknown artist"}
-                {buffering && <span className="ml-2 text-white/30">buffering…</span>}
-              </>
-            )}
-          </p>
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">
+              {currentTrack.title}
+            </p>
+            <p className="truncate text-xs text-white/50">
+              {error ? (
+                <span className="text-red-400">{error}</span>
+              ) : (
+                <>
+                  {currentTrack.artist || "Unknown artist"}
+                  {buffering && (
+                    <span className="ml-2 text-white/30">buffering…</span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+        </button>
 
         <span className="hidden tabular-nums text-xs text-white/40 sm:inline">
           {formatDuration(currentTime)} / {formatDuration(total || null)}
