@@ -1,0 +1,23 @@
+import express from "express";
+import { db, initDb } from "./db.ts";
+
+const PORT = Number(process.env.PORT ?? 3001);
+
+initDb();
+
+const app = express();
+app.use(express.json());
+
+// Health check — confirms the server is up and the DB connection is live.
+app.get("/api/health", (_req, res) => {
+  const row = db.prepare("SELECT 1 AS ok").get() as { ok: number };
+  res.json({
+    status: "ok",
+    db: row.ok === 1 ? "connected" : "unknown",
+    time: new Date().toISOString(),
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`[server] KiddoMusic API listening on http://localhost:${PORT}`);
+});

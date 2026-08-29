@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Per-track dynamic theming lives on these CSS custom properties.
+   Color extraction (Phase 4) will overwrite them at runtime. */
+:root {
+  --bg-base: #0a0a0f;
+  --accent: #6d5efc;
+  --accent-soft: #241f57;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: #f5f5f7;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

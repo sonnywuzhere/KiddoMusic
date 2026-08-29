@@ -1,0 +1,15 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+# Server runtime data — uploaded audio, extracted artwork, SQLite DB
+server/storage/
+*.db
+*.db-shm
+*.db-wal
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea

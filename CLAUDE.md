@@ -1,0 +1,192 @@
+# CLAUDE.md — Immersive Music Player Build Guide
+
+This file is the working build plan for the project described in `PRD.md`. It exists so that any Claude Code session (or human) can pick up the project, know what phase it's in, and know what "done" looks like for each step. Work through phases in order — each one builds on the last. Check off steps as they're completed.
+
+---
+
+## Project Summary
+
+A personal web app for uploading your own music and listening through an immersive, full-screen "Now Playing" experience with cinematic transitions between tracks — replacing the typical static player bar. See `PRD.md` for full product context; this file is the technical execution plan.
+
+---
+
+## Tech Stack & Key Decisions
+
+These are concrete choices made to keep this buildable as a solo/personal project. Flagged assumptions map to the PRD's open questions (Section 10) — revisit if requirements change.
+
+| Concern | Choice | Why |
+|---|---|---|
+| Frontend | React + TypeScript + Vite | Fast dev loop, good ecosystem for audio/visual work |
+| Styling | Tailwind CSS + CSS custom properties | Utility speed, and CSS variables make per-track dynamic theming (color extraction) easy |
+| Animation | Framer Motion | Built for exactly this — cinematic enter/exit and crossfade transitions |
+| Audio playback | Web Audio API (via a custom `AudioEngine` wrapper) | Native, gives access to waveform/frequency data for future audio-reactive visuals |
+| Metadata extraction | `music-metadata-browser` | Reads ID3/embedded tags (title, artist, album, artwork) client-side on upload |
+| Color extraction | `colorthief` or `node-vibrant` | Extracts dominant/palette colors from album art for the backdrop |
+| Backend | Node + Express | Minimal, sufficient for a personal-scale app |
+| Database | SQLite (`better-sqlite3`) | Zero-config, file-based, fine for single-user scale |
+| File storage | Local disk (`server/storage/`) | Simplest for v1; swappable for cloud storage later without touching the frontend |
+| Upload handling | `multer` | Standard, well-supported multipart upload middleware |
+
+**Assumption carried from PRD:** web app, self-hostable, single-user for v1 (Section 5 & 10 of PRD). If multi-device sync or cloud storage becomes a requirement, the storage layer is the only piece that needs to change — routes and DB schema are designed to be storage-agnostic.
+
+---
+
+## Project Structure
+
+```
+music-player/
+├── CLAUDE.md
+├── PRD.md
+├── package.json
+├── server/
+│   ├── index.ts              # Express app entry
+│   ├── db.ts                 # SQLite setup + schema
+│   ├── routes/
+│   │   ├── upload.ts         # POST /upload — handles file + metadata extraction
+│   │   ├── tracks.ts         # GET /tracks, /tracks/:id — library queries
+│   │   └── stream.ts         # GET /stream/:id — audio file streaming
+│   ├── storage/               # uploaded audio files + extracted artwork live here
+│   └── metadata/
+│       └── extract.ts        # wraps music-metadata for tag parsing
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── Library/           # grid/list view, search, sort
+│   │   ├── Upload/            # drag-and-drop + file picker UI
+│   │   ├── MiniPlayer/        # persistent bottom bar, entry point to takeover
+│   │   └── NowPlaying/
+│   │       ├── NowPlayingTakeover.tsx
+│   │       ├── Backdrop.tsx        # color-extracted gradient/particle field
+│   │       ├── TrackTransition.tsx # crossfade/wipe logic between tracks
+│   │       └── Controls.tsx        # auto-hiding playback controls
+│   ├── engine/
+│   │   ├── AudioEngine.ts     # Web Audio API wrapper: play/pause/seek/queue
+│   │   └── colorExtraction.ts # album art → palette
+│   ├── store/
+│   │   └── playbackStore.ts   # current track, queue, playback state (Zustand)
+│   └── styles/
+└── README.md
+```
+
+---
+
+## Build Pipeline
+
+### Phase 0 — Project Setup ✅ COMPLETE
+- [x] Scaffold Vite + React + TypeScript project
+- [x] Set up Tailwind CSS (v4, via `@tailwindcss/vite` plugin — CSS-first config in `src/styles/index.css`)
+- [x] Set up Express server with a basic health-check route (`GET /api/health`)
+- [x] Configure concurrent dev script (client + server run together via `concurrently`)
+- [x] Set up SQLite DB file and connection in `server/db.ts` (`better-sqlite3`, WAL mode)
+- [x] `PRD.md` already present in the repo root
+
+**Done when:** `npm run dev` starts both client and server, and the client can hit a test API route. ✅ Verified — client at :5173 proxies `/api` → server at :3001, health pill renders "API healthy" with a live DB connection, no console errors.
+
+---
+
+### Phase 1 — Data Layer: Upload, Metadata, Storage
+*(PRD 7.1, 7.4)*
+
+- [ ] Define DB schema: `tracks` table (id, title, artist, album, duration, artwork_path, file_path, date_added)
+- [ ] Build `POST /upload` route with `multer` — accepts single or multiple audio files
+- [ ] Extract embedded metadata (title, artist, album, artwork) via `music-metadata` on upload
+- [ ] Store audio file + extracted artwork in `server/storage/`
+- [ ] Insert track record into DB
+- [ ] Handle errors: unsupported format, oversized file, missing metadata (fallback to filename)
+- [ ] Build drag-and-drop + file picker upload UI in `components/Upload/`
+- [ ] Show upload progress and error states in the UI
+- [ ] Build manual metadata edit UI for tracks with missing/incorrect tags
+
+**Done when:** you can drag in an MP3, see it appear in the DB with correct metadata, and fix metadata manually if needed.
+
+---
+
+### Phase 2 — Library View
+*(PRD 7.2)*
+
+- [ ] Build `GET /tracks` route with sort/filter query params
+- [ ] Build grid/list library view in `components/Library/`
+- [ ] Implement sort (title, artist, album, date added)
+- [ ] Implement search across the library
+- [ ] Wire clicking a track to start playback (feeds into Phase 3)
+
+**Done when:** your full uploaded library is browsable, searchable, and sortable.
+
+---
+
+### Phase 3 — Playback Engine
+*(PRD 7.3)*
+
+- [ ] Build `AudioEngine.ts`: wraps Web Audio API for play/pause/seek/volume
+- [ ] Build `GET /stream/:id` route to serve audio with range-request support (for seeking)
+- [ ] Build `playbackStore.ts`: current track, queue, play/pause state, progress
+- [ ] Build persistent `MiniPlayer` component (survives navigation)
+- [ ] Implement basic queue: play next, add to queue, skip forward/back
+- [ ] Confirm playback state persists when navigating away from and back to the takeover
+
+**Done when:** playback works reliably from the mini-player, independent of which screen you're on.
+
+---
+
+### Phase 4 — Full-Screen "Now Playing" Takeover (Core Feature)
+*(PRD Section 6 — this is the anchor feature, take the most care here)*
+
+- [ ] **4.1 Entry transition** *(PRD 6.1)*: build the expand animation from mini-player → full-screen (art scale/blur, chrome fade) with Framer Motion
+- [ ] **4.2 Backdrop** *(PRD 6.2)*: run color extraction on album art, generate a slow-moving gradient or particle field from the palette
+- [ ] **4.3 Foreground typography** *(PRD 6.3)*: implement hero-style title/artist treatment
+- [ ] **4.4 Track-to-track transitions** *(PRD 6.4)*: implement crossfade/wipe between tracks on skip or auto-advance
+- [ ] **4.5 Controls** *(PRD 6.5)*: build auto-hiding play/pause/scrub/skip controls (fade in on interaction, fade out after idle)
+- [ ] **4.6 State coverage** *(PRD 6.6)*: explicitly test and handle — empty library, loading/buffering, playing, paused, scrubbing, auto-advance, manual skip, exit takeover
+
+**Done when:** starting playback feels like an event — the entry, backdrop, and transitions all read as intentional, not default.
+
+---
+
+### Phase 5 — Polish & Edge Cases
+- [ ] Empty states (no library yet, no track playing)
+- [ ] Loading/skeleton states for library and takeover
+- [ ] Error states (failed upload, corrupt file, playback failure)
+- [ ] Responsive check — confirm takeover and library work at different window sizes
+- [ ] Performance pass — confirm backdrop animation doesn't jank on lower-end hardware
+
+---
+
+### Phase 6 — Groundwork for v2 (optional, do not block v1 on this)
+*(PRD Section 9)*
+
+- [ ] Confirm DB schema has room for future fields (notes/memories, lyrics, mood tags) without migration pain
+- [ ] Keep `AudioEngine` structured so frequency/amplitude data is already accessible (for future audio-reactive backdrop intensity)
+- [ ] Keep storage layer abstracted enough to swap local disk for cloud storage later
+
+---
+
+## Working Conventions
+
+- Work one phase at a time. Don't start Phase 4 styling work before Phase 1–3 are functionally solid — the takeover is the payoff, not a shortcut.
+- Commit at the level of individual checklist items where practical.
+- Every phase should end in a runnable, demoable state — not partial/broken.
+- When a PRD open question (Section 10) forces a decision, note the decision and rationale back in `PRD.md`'s Open Questions section rather than silently deciding.
+
+---
+
+## Open Decisions Carried from PRD
+
+These aren't blockers, but should be resolved as they come up rather than assumed silently:
+
+- Should storage stay local-disk, or move to cloud storage (S3/Supabase) — relevant once multi-device access matters
+- Fixed single transition style for v1, or a small selectable set
+- Whether the data model should support multiple users/invites from day one, even if unused in v1 UI
+
+---
+
+## Build Log
+
+**Phase 0 — Project Setup (complete)**
+- Scaffolded manually (not `create-vite`) for full control over the single-package client+server layout. Everything lives at the repo root — the `music-player/` prefix in the Project Structure diagram is illustrative of the repo name, not a nested folder.
+- **Decision — Tailwind v4 over v3:** used Tailwind v4 with the `@tailwindcss/vite` plugin and CSS-first config (`@import "tailwindcss"` in `src/styles/index.css`), rather than v3's PostCSS + `tailwind.config.js`. Simpler, no config file, and CSS custom properties for per-track theming (`--bg-base`, `--accent`) sit naturally in the same stylesheet. Revisit only if a plugin needs the JS config.
+- **Dev orchestration:** `npm run dev` runs both via `concurrently`; client (Vite) on :5173 proxies `/api` → Express on :3001. Server runs through `tsx watch` (no build step in dev).
+- **DB:** `better-sqlite3` in WAL mode, file at `server/storage/kiddomusic.db` (gitignored). `tracks` table stubbed per the Phase 1 schema so the connection has something real to open.
+- Also added: `.gitignore`, `.claude/launch.json` (dev-server launch config), `npm run typecheck`. Note: not yet a git repo — run `git init` when ready to start committing per-checklist-item.
+
+**Next:** Phase 1 — data layer (upload route + `music-metadata` extraction + storage + upload UI).
