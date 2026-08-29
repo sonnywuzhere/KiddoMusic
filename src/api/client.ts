@@ -13,8 +13,21 @@ async function asError(res: Response): Promise<never> {
   throw new Error(message);
 }
 
-export async function getTracks(): Promise<Track[]> {
-  const res = await fetch("/api/tracks");
+export type SortKey = "title" | "artist" | "album" | "dateAdded";
+export type SortOrder = "asc" | "desc";
+export type TrackQuery = {
+  sort?: SortKey;
+  order?: SortOrder;
+  search?: string;
+};
+
+export async function getTracks(query: TrackQuery = {}): Promise<Track[]> {
+  const params = new URLSearchParams();
+  if (query.sort) params.set("sort", query.sort);
+  if (query.order) params.set("order", query.order);
+  if (query.search?.trim()) params.set("search", query.search.trim());
+  const qs = params.toString();
+  const res = await fetch(`/api/tracks${qs ? `?${qs}` : ""}`);
   if (!res.ok) return asError(res);
   const body = (await res.json()) as { tracks: Track[] };
   return body.tracks;

@@ -105,13 +105,13 @@ music-player/
 ### Phase 2 — Library View
 *(PRD 7.2)*
 
-- [ ] Build `GET /tracks` route with sort/filter query params
-- [ ] Build grid/list library view in `components/Library/`
-- [ ] Implement sort (title, artist, album, date added)
-- [ ] Implement search across the library
-- [ ] Wire clicking a track to start playback (feeds into Phase 3)
+- [x] Build `GET /tracks` route with sort/filter query params (`sort`, `order`, `search`)
+- [x] Build grid/list library view in `components/Library/`
+- [x] Implement sort (title, artist, album, date added) + asc/desc toggle
+- [x] Implement search across the library (title/artist/album, debounced, server-side)
+- [x] Wire clicking a track to start playback (feeds into Phase 3)
 
-**Done when:** your full uploaded library is browsable, searchable, and sortable.
+**Done when:** your full uploaded library is browsable, searchable, and sortable. ✅ Verified with 5 seeded tracks — grid + list views, sort by every field (with title tiebreak), asc/desc, debounced search across all three fields, injection-safe sort whitelist, and click-to-play driving the mini-player with working next/prev queue navigation.
 
 ---
 
@@ -197,4 +197,10 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **Client:** `src/api/client.ts` (fetch + XHR upload with progress), `components/Upload/UploadZone.tsx` (DnD + picker + progress + per-file errors), `components/Library/{TrackList,EditMetadataModal}.tsx`. `TrackList` is intentionally minimal — Phase 2 replaces it with the real Library (grid/list, sort, filter, search).
 - Deps added: `multer` (2.x), `music-metadata` (11.x), `@types/multer`.
 
-**Next:** Phase 2 — Library view: `GET /tracks` sort/filter/search query params, real grid/list view, wire track click → playback (feeds Phase 3).
+**Phase 2 — Library View (complete)**
+- **Server:** `GET /api/tracks` now takes `sort` (title|artist|album|dateAdded), `order` (asc|desc), `search`. Sort keys are whitelisted → real columns (no SQL injection); text sorts use `COLLATE NOCASE` with `title` as a stable tiebreak; search is a case-insensitive `LIKE %term%` across title/artist/album.
+- **Client:** `components/Library/LibraryView.tsx` owns the toolbar (search box, sort select, order toggle, grid/list toggle) + fetching (search debounced 250ms, refetch on any query change). `TrackGrid.tsx` (artwork-forward cards) and the updated `TrackList.tsx` (rows) are both click-to-play and show a current-track highlight. `EditMetadataModal` reused from Phase 1.
+- **Playback wiring:** added `store/playbackStore.ts` (Zustand) — `currentTrack`, `queue`, `index`, `isPlaying`, and `playTrack/togglePlay/next/prev`. Clicking a track calls `playTrack(track, tracks)` so the whole visible list becomes the queue. `components/MiniPlayer/MiniPlayer.tsx` is a persistent bottom bar reading the store — controls mutate state but produce **no audio yet** (labeled "audio in Phase 3"). Phase 3 binds this store to the real AudioEngine.
+- Dep added: `zustand`.
+
+**Next:** Phase 3 — Playback engine: `AudioEngine.ts` (Web Audio play/pause/seek/volume), `GET /api/stream/:id` with HTTP range support, bind the store to real audio, persist playback across navigation.

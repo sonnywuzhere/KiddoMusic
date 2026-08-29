@@ -69,10 +69,47 @@ export function insertTrack(row: TrackRow): void {
   insertStmt.run(row);
 }
 
-export function listTracks(): TrackRow[] {
+export type SortKey = "title" | "artist" | "album" | "dateAdded";
+export type SortOrder = "asc" | "desc";
+
+export type ListOptions = {
+  sort?: SortKey;
+  order?: SortOrder;
+  search?: string;
+};
+
+// Whitelist sort keys → real columns (never interpolate user input into SQL).
+const SORT_COLUMNS: Record<SortKey, string> = {
+  title: "title",
+  artist: "artist",
+  album: "album",
+  dateAdded: "date_added",
+};
+
+export function listTracks(opts: ListOptions = {}): TrackRow[] {
+  const sort: SortKey = opts.sort && opts.sort in SORT_COLUMNS ? opts.sort : "dateAdded";
+  const order: SortOrder = opts.order === "asc" ? "asc" : "desc";
+  const column = SORT_COLUMNS[sort];
+
+  const params: unknown[] = [];
+  let where = "";
+  const search = opts.search?.trim();
+  if (search) {
+    where = "WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?";
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
+
+  // NOCASE for text sorts; title as a stable tiebreak. date_added stays numeric.
+  const collate = column === "date_added" ? "" : "COLLATE NOCASE";
+  const orderBy =
+    column === "date_added"
+      ? `date_added ${order}`
+      : `${column} ${collate} ${order}, title COLLATE NOCASE ASC`;
+
   return db
-    .prepare("SELECT * FROM tracks ORDER BY date_added DESC")
-    .all() as TrackRow[];
+    .prepare(`SELECT * FROM tracks ${where} ORDER BY ${orderBy}`)
+    .all(...params) as TrackRow[];
 }
 
 export function getTrack(id: string): TrackRow | undefined {

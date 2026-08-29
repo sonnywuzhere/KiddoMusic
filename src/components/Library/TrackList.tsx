@@ -1,54 +1,63 @@
 import type { Track } from "../../types";
 import { formatDuration } from "../../utils/format";
+import { usePlaybackStore } from "../../store/playbackStore";
 
 type Props = {
   tracks: Track[];
   onEdit: (track: Track) => void;
 };
 
-/**
- * Minimal list of library tracks — enough for Phase 1 verification (see it
- * appear, edit metadata). Phase 2 replaces this with the full grid/list
- * Library view including sort, filter, and search.
- */
+/** List (row) presentation of the library. Rows are click-to-play. */
 export default function TrackList({ tracks, onEdit }: Props) {
-  if (tracks.length === 0) {
-    return (
-      <p className="py-10 text-center text-sm text-white/40">
-        No tracks yet. Upload some audio to get started.
-      </p>
-    );
-  }
+  const currentId = usePlaybackStore((s) => s.currentTrack?.id);
+  const playTrack = usePlaybackStore((s) => s.playTrack);
 
   return (
     <ul className="divide-y divide-white/5">
-      {tracks.map((track) => (
-        <li
-          key={track.id}
-          className="group flex items-center gap-4 py-3"
-        >
-          <Artwork track={track} />
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium text-white">{track.title}</p>
-            <p className="truncate text-sm text-white/50">
-              {track.artist || "Unknown artist"}
-              {track.album ? ` · ${track.album}` : ""}
-            </p>
-          </div>
-
-          <span className="tabular-nums text-sm text-white/40">
-            {formatDuration(track.duration)}
-          </span>
-
-          <button
-            onClick={() => onEdit(track)}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 opacity-0 transition-opacity hover:bg-white/5 group-hover:opacity-100 focus:opacity-100"
+      {tracks.map((track) => {
+        const active = track.id === currentId;
+        return (
+          <li
+            key={track.id}
+            onClick={() => playTrack(track, tracks)}
+            className={
+              "group flex cursor-pointer items-center gap-4 rounded-lg px-2 py-3 transition-colors " +
+              (active ? "bg-indigo-500/10" : "hover:bg-white/[0.04]")
+            }
           >
-            Edit
-          </button>
-        </li>
-      ))}
+            <Artwork track={track} />
+
+            <div className="min-w-0 flex-1">
+              <p
+                className={
+                  "truncate font-medium " +
+                  (active ? "text-indigo-300" : "text-white")
+                }
+              >
+                {track.title}
+              </p>
+              <p className="truncate text-sm text-white/50">
+                {track.artist || "Unknown artist"}
+                {track.album ? ` · ${track.album}` : ""}
+              </p>
+            </div>
+
+            <span className="tabular-nums text-sm text-white/40">
+              {formatDuration(track.duration)}
+            </span>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(track);
+              }}
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 opacity-0 transition-opacity hover:bg-white/5 focus:opacity-100 group-hover:opacity-100"
+            >
+              Edit
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

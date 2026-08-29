@@ -1,13 +1,32 @@
 import { Router } from "express";
-import { listTracks, getTrack, updateTrackMetadata } from "../db.ts";
+import {
+  listTracks,
+  getTrack,
+  updateTrackMetadata,
+  type SortKey,
+  type SortOrder,
+} from "../db.ts";
 import { toApiTrack } from "../serialize.ts";
 
 export const tracksRouter = Router();
 
-// GET /api/tracks — full library, newest first.
-// (Phase 2 adds sort/filter/search query params.)
-tracksRouter.get("/tracks", (_req, res) => {
-  res.json({ tracks: listTracks().map(toApiTrack) });
+const VALID_SORTS: SortKey[] = ["title", "artist", "album", "dateAdded"];
+
+// GET /api/tracks?sort=&order=&search= — sortable, searchable library.
+tracksRouter.get("/tracks", (req, res) => {
+  const sortParam = req.query.sort;
+  const orderParam = req.query.order;
+  const searchParam = req.query.search;
+
+  const sort: SortKey | undefined =
+    typeof sortParam === "string" && (VALID_SORTS as string[]).includes(sortParam)
+      ? (sortParam as SortKey)
+      : undefined;
+  const order: SortOrder | undefined =
+    orderParam === "asc" || orderParam === "desc" ? orderParam : undefined;
+  const search = typeof searchParam === "string" ? searchParam : undefined;
+
+  res.json({ tracks: listTracks({ sort, order, search }).map(toApiTrack) });
 });
 
 // GET /api/tracks/:id
