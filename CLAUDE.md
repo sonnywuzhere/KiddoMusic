@@ -118,14 +118,14 @@ music-player/
 ### Phase 3 — Playback Engine
 *(PRD 7.3)*
 
-- [ ] Build `AudioEngine.ts`: wraps Web Audio API for play/pause/seek/volume
-- [ ] Build `GET /stream/:id` route to serve audio with range-request support (for seeking)
-- [ ] Build `playbackStore.ts`: current track, queue, play/pause state, progress
-- [ ] Build persistent `MiniPlayer` component (survives navigation)
-- [ ] Implement basic queue: play next, add to queue, skip forward/back
-- [ ] Confirm playback state persists when navigating away from and back to the takeover
+- [x] Build `AudioEngine.ts`: wraps Web Audio API for play/pause/seek/volume
+- [x] Build `GET /stream/:id` route to serve audio with range-request support (for seeking)
+- [x] Build `playbackStore.ts`: current track, queue, play/pause state, progress
+- [x] Build persistent `MiniPlayer` component (survives navigation)
+- [x] Implement basic queue: play next, add to queue, skip forward/back
+- [x] Confirm playback state persists when navigating away from and back to the takeover
 
-**Done when:** playback works reliably from the mini-player, independent of which screen you're on.
+**Done when:** playback works reliably from the mini-player, independent of which screen you're on. ✅ Verified with real audio (multi-second WAV tones): play/pause/resume, scrub-seek, volume, next/prev queue nav, auto-advance through the queue (c→b→a), clean stop at end-of-queue, and uninterrupted playback across a grid↔list view switch. Range endpoint verified (206 partial, open-ended/suffix ranges, 416 unsatisfiable, 404 missing).
 
 ---
 
@@ -203,4 +203,11 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **Playback wiring:** added `store/playbackStore.ts` (Zustand) — `currentTrack`, `queue`, `index`, `isPlaying`, and `playTrack/togglePlay/next/prev`. Clicking a track calls `playTrack(track, tracks)` so the whole visible list becomes the queue. `components/MiniPlayer/MiniPlayer.tsx` is a persistent bottom bar reading the store — controls mutate state but produce **no audio yet** (labeled "audio in Phase 3"). Phase 3 binds this store to the real AudioEngine.
 - Dep added: `zustand`.
 
-**Next:** Phase 3 — Playback engine: `AudioEngine.ts` (Web Audio play/pause/seek/volume), `GET /api/stream/:id` with HTTP range support, bind the store to real audio, persist playback across navigation.
+**Phase 3 — Playback Engine (complete)**
+- **`engine/AudioEngine.ts`:** wraps a detached `HTMLAudioElement` (native streaming/buffering/range-seek) routed through a Web Audio graph — `MediaElementSource → Analyser → destination`. The `<audio>` gives real seekable playback; the `AnalyserNode` (fftSize 2048, exposed via `getAnalyser()`) is ready for Phase 4's audio-reactive backdrop. Web Audio graph is built lazily on first `play()` inside the user gesture; degrades to plain-element playback if Web Audio is unavailable. Exposed as a **module-level singleton** (`audioEngine`) so playback lives outside React and survives component/screen changes.
+- **`GET /api/stream/:id`:** looks up the track, serves the file from `storage/audio` with `Accept-Ranges`, and honors `Range` — 206 Partial Content with correct `Content-Range`/`Content-Length` for normal, open-ended, and suffix ranges; 416 for unsatisfiable; 404 for missing track/file. This is what makes seeking work.
+- **`store/playbackStore.ts`:** now drives the engine. Adds `currentTime`, `duration`, `volume`, `buffering`, `error`; actions `seek`, `setVolume`, `addToQueue`. Engine events are wired back into the store (`onTime/onDuration/onPlay/onPause/onWaiting/onCanPlay/onError/onEnded`). `onEnded` auto-advances to the next queue item, or stops cleanly at the end. `prev` restarts the track if >3s in, else steps back (standard behavior).
+- **`MiniPlayer`:** full transport now — scrub bar (seek), current/total time, volume slider, buffering + error states, prev/play-pause/next. `.mp-range` styling (fill via `--pct`) added to `index.css`. Removed the Phase-2 "audio in Phase 3" stub label. "Add to queue" (+) affordance added to `TrackList` rows.
+- **Gotcha for testing, not a code bug:** creating multiple `AudioContext`s in a page (e.g. ad-hoc console probes) can stall the app's singleton engine; a fresh page load clears it. Real playback is reliable — the earlier "stuck at 0:00" during verification was self-inflicted test pollution.
+
+**Next:** Phase 4 — the full-screen Now Playing takeover (the anchor feature): entry transition from the mini-player, color-extracted backdrop (`engine/colorExtraction.ts`, `node-vibrant`/`colorthief`), hero typography, track-to-track transitions (Framer Motion), auto-hiding controls, and full state coverage. Analyser is already available for optional audio-reactive intensity.

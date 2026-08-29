@@ -2,6 +2,7 @@ import express from "express";
 import { db, initDb, artworkDir } from "./db.ts";
 import { uploadRouter, uploadErrorHandler } from "./routes/upload.ts";
 import { tracksRouter } from "./routes/tracks.ts";
+import { streamRouter } from "./routes/stream.ts";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -32,6 +33,7 @@ app.use(
 // API routes
 app.use("/api", uploadRouter);
 app.use("/api", tracksRouter);
+app.use("/api", streamRouter);
 
 // Upload-specific error handling (unsupported format, file too large).
 app.use(uploadErrorHandler);

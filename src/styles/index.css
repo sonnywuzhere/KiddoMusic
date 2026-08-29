@@ -21,3 +21,51 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Range inputs (scrub + volume): fill up to the thumb via --pct. */
+.mp-range {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.mp-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--pct, 0%),
+    rgba(255, 255, 255, 0.15) var(--pct, 0%)
+  );
+}
+.mp-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.mp-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.mp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.mp-range:hover::-webkit-slider-thumb,
+.mp-range:focus::-webkit-slider-thumb {
+  opacity: 1;
+}
+.mp-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+}

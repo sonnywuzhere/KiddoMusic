@@ -1,1 +1,1 @@
-{"root":["./server/db.ts","./server/index.ts","./server/serialize.ts","./server/metadata/extract.ts","./server/routes/tracks.ts","./server/routes/upload.ts"],"version":"5.9.3"}
+{"root":["./server/db.ts","./server/index.ts","./server/serialize.ts","./server/metadata/extract.ts","./server/routes/stream.ts","./server/routes/tracks.ts","./server/routes/upload.ts"],"version":"5.9.3"}

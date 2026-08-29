@@ -1,22 +1,50 @@
 import { usePlaybackStore } from "../../store/playbackStore";
+import { formatDuration } from "../../utils/format";
 
 /**
- * Persistent bottom now-playing bar. Phase 2 renders the selected track and
- * reflects playback state from the store; the controls drive the store but
- * produce no audio yet. Phase 3 binds this to the AudioEngine (real play/pause/
- * seek) and makes it the entry point into the full-screen Now Playing takeover.
+ * Persistent bottom now-playing bar, bound to the real AudioEngine via the
+ * store. Lives at the app root so it survives screen changes. Phase 4 makes it
+ * the entry point into the full-screen Now Playing takeover.
  */
 export default function MiniPlayer() {
-  const { currentTrack, isPlaying, queue, index, togglePlay, next, prev } =
-    usePlaybackStore();
+  const {
+    currentTrack,
+    isPlaying,
+    buffering,
+    queue,
+    index,
+    currentTime,
+    duration,
+    volume,
+    error,
+    togglePlay,
+    next,
+    prev,
+    seek,
+    setVolume,
+  } = usePlaybackStore();
 
   if (!currentTrack) return null;
 
   const hasPrev = index > 0;
   const hasNext = index < queue.length - 1;
+  const total = duration || currentTrack.duration || 0;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0d0d14]/95 backdrop-blur">
+      {/* Scrub bar spans the full width at the very top of the bar. */}
+      <input
+        type="range"
+        min={0}
+        max={total || 0}
+        step={0.1}
+        value={Math.min(currentTime, total || 0)}
+        onChange={(e) => seek(Number(e.target.value))}
+        aria-label="Seek"
+        className="mp-range absolute -top-1 left-0 h-1 w-full cursor-pointer"
+        style={{ ["--pct" as string]: `${total ? (currentTime / total) * 100 : 0}%` }}
+      />
+
       <div className="mx-auto flex max-w-3xl items-center gap-4 px-5 py-3">
         {currentTrack.artworkUrl ? (
           <img
@@ -35,12 +63,23 @@ export default function MiniPlayer() {
             {currentTrack.title}
           </p>
           <p className="truncate text-xs text-white/50">
-            {currentTrack.artist || "Unknown artist"}
+            {error ? (
+              <span className="text-red-400">{error}</span>
+            ) : (
+              <>
+                {currentTrack.artist || "Unknown artist"}
+                {buffering && <span className="ml-2 text-white/30">buffering…</span>}
+              </>
+            )}
           </p>
         </div>
 
+        <span className="hidden tabular-nums text-xs text-white/40 sm:inline">
+          {formatDuration(currentTime)} / {formatDuration(total || null)}
+        </span>
+
         <div className="flex items-center gap-1">
-          <ControlButton onClick={prev} disabled={!hasPrev} label="Previous">
+          <ControlButton onClick={prev} disabled={!hasPrev && currentTime <= 3} label="Previous">
             ⏮
           </ControlButton>
           <button
@@ -55,9 +94,17 @@ export default function MiniPlayer() {
           </ControlButton>
         </div>
 
-        <span className="hidden text-[11px] text-white/25 sm:inline">
-          audio in Phase 3
-        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+          aria-label="Volume"
+          className="mp-range hidden h-1 w-20 cursor-pointer md:block"
+          style={{ ["--pct" as string]: `${volume * 100}%` }}
+        />
       </div>
     </div>
   );
