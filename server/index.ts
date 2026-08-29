@@ -1,5 +1,7 @@
 import express from "express";
-import { db, initDb } from "./db.ts";
+import { db, initDb, artworkDir } from "./db.ts";
+import { uploadRouter, uploadErrorHandler } from "./routes/upload.ts";
+import { tracksRouter } from "./routes/tracks.ts";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -17,6 +19,22 @@ app.get("/api/health", (_req, res) => {
     time: new Date().toISOString(),
   });
 });
+
+// Extracted album art. Served under /api so the Vite dev proxy forwards it.
+app.use(
+  "/api/artwork",
+  express.static(artworkDir, {
+    immutable: true,
+    maxAge: "1y",
+  }),
+);
+
+// API routes
+app.use("/api", uploadRouter);
+app.use("/api", tracksRouter);
+
+// Upload-specific error handling (unsupported format, file too large).
+app.use(uploadErrorHandler);
 
 app.listen(PORT, () => {
   console.log(`[server] KiddoMusic API listening on http://localhost:${PORT}`);

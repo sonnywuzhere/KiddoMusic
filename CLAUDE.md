@@ -88,17 +88,17 @@ music-player/
 ### Phase 1 — Data Layer: Upload, Metadata, Storage
 *(PRD 7.1, 7.4)*
 
-- [ ] Define DB schema: `tracks` table (id, title, artist, album, duration, artwork_path, file_path, date_added)
-- [ ] Build `POST /upload` route with `multer` — accepts single or multiple audio files
-- [ ] Extract embedded metadata (title, artist, album, artwork) via `music-metadata` on upload
-- [ ] Store audio file + extracted artwork in `server/storage/`
-- [ ] Insert track record into DB
-- [ ] Handle errors: unsupported format, oversized file, missing metadata (fallback to filename)
-- [ ] Build drag-and-drop + file picker upload UI in `components/Upload/`
-- [ ] Show upload progress and error states in the UI
-- [ ] Build manual metadata edit UI for tracks with missing/incorrect tags
+- [x] Define DB schema: `tracks` table (id, title, artist, album, duration, artwork_path, file_path, date_added)
+- [x] Build `POST /upload` route with `multer` — accepts single or multiple audio files (field name `files`)
+- [x] Extract embedded metadata (title, artist, album, artwork) via `music-metadata` on upload (server-side)
+- [x] Store audio file + extracted artwork in `server/storage/` (`audio/` and `artwork/` subdirs)
+- [x] Insert track record into DB
+- [x] Handle errors: unsupported format (415), oversized file (413, 250MB cap), missing metadata (fallback title → filename)
+- [x] Build drag-and-drop + file picker upload UI in `components/Upload/`
+- [x] Show upload progress (XHR progress events) and error states in the UI
+- [x] Build manual metadata edit UI for tracks with missing/incorrect tags
 
-**Done when:** you can drag in an MP3, see it appear in the DB with correct metadata, and fix metadata manually if needed.
+**Done when:** you can drag in an MP3, see it appear in the DB with correct metadata, and fix metadata manually if needed. ✅ Verified end-to-end in the browser — DnD upload of a WAV (filename fallback) and API upload of a tagged MP3 (title/artist/album + cover art extracted and served), both render in the library; edit modal PATCHes and persists to the DB. All `/api` requests 200/201.
 
 ---
 
@@ -189,4 +189,12 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - **DB:** `better-sqlite3` in WAL mode, file at `server/storage/kiddomusic.db` (gitignored). `tracks` table stubbed per the Phase 1 schema so the connection has something real to open.
 - Also added: `.gitignore`, `.claude/launch.json` (dev-server launch config), `npm run typecheck`. Note: not yet a git repo — run `git init` when ready to start committing per-checklist-item.
 
-**Next:** Phase 1 — data layer (upload route + `music-metadata` extraction + storage + upload UI).
+**Phase 1 — Data Layer (complete)**
+- **Decision — server-side metadata, not `music-metadata-browser`:** the tech-stack table listed `music-metadata-browser` (client-side), but the folder structure (`server/metadata/extract.ts`) and checklist point to server-side extraction. Went server-side with `music-metadata` (v11, works in Node) — single source of truth, client-agnostic, and the audio bytes are already on the server. Client never parses tags.
+- **API surface:** `POST /api/upload` (multer, field `files`, single/multi), `GET /api/tracks`, `GET /api/tracks/:id`, `PATCH /api/tracks/:id` (title/artist/album edit). Artwork served static under `/api/artwork/*` (kept under `/api` so the Vite dev proxy forwards it — the proxy only covers `/api`).
+- **Storage layout:** `server/storage/{audio,artwork}/` + `kiddomusic.db`, bare filenames in the DB (storage-agnostic, per the swap-friendly design). Audio streaming route (`/api/stream/:id`) is stubbed in serialized URLs but implemented in Phase 3.
+- **Bug fixed:** `better-sqlite3` prepares statements eagerly, so top-level `db.prepare(INSERT…)` ran before the table existed. Moved `initDb()` (idempotent `CREATE IF NOT EXISTS`) to run at import time in `db.ts` before any prepare. Surfaced only after wiping the DB — worth remembering.
+- **Client:** `src/api/client.ts` (fetch + XHR upload with progress), `components/Upload/UploadZone.tsx` (DnD + picker + progress + per-file errors), `components/Library/{TrackList,EditMetadataModal}.tsx`. `TrackList` is intentionally minimal — Phase 2 replaces it with the real Library (grid/list, sort, filter, search).
+- Deps added: `multer` (2.x), `music-metadata` (11.x), `@types/multer`.
+
+**Next:** Phase 2 — Library view: `GET /tracks` sort/filter/search query params, real grid/list view, wire track click → playback (feeds Phase 3).

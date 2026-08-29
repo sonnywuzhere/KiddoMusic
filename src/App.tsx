@@ -1,75 +1,83 @@
 import { useEffect, useState } from "react";
-
-type HealthState =
-  | { status: "loading" }
-  | { status: "ok"; time: string }
-  | { status: "error"; message: string };
+import UploadZone from "./components/Upload/UploadZone";
+import TrackList from "./components/Library/TrackList";
+import EditMetadataModal from "./components/Library/EditMetadataModal";
+import { getTracks } from "./api/client";
+import type { Track } from "./types";
 
 /**
- * Phase 0 shell. Its only real job right now is to prove the client can reach
- * the Express API through the Vite proxy via GET /api/health. Real screens
- * (Library, Upload, NowPlaying) arrive in later phases.
+ * Phase 1 shell: upload + a minimal library list with manual metadata editing.
+ * Phases 2–4 add the real Library view, playback engine, and Now Playing
+ * takeover.
  */
 export default function App() {
-  const [health, setHealth] = useState<HealthState>({ status: "loading" });
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Track | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/health")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: { status: string; time: string }) => {
-        if (!cancelled) setHealth({ status: "ok", time: data.time });
-      })
-      .catch((err: unknown) => {
-        if (!cancelled)
-          setHealth({
-            status: "error",
-            message: err instanceof Error ? err.message : "unknown error",
-          });
-      });
-    return () => {
-      cancelled = true;
-    };
+    getTracks()
+      .then(setTracks)
+      .catch((err: unknown) =>
+        setLoadError(err instanceof Error ? err.message : "Failed to load library."),
+      )
+      .finally(() => setLoading(false));
   }, []);
 
+  function handleUploaded(created: Track[]) {
+    // Prepend new tracks (newest first), de-duplicating by id.
+    setTracks((prev) => {
+      const ids = new Set(created.map((t) => t.id));
+      return [...created, ...prev.filter((t) => !ids.has(t.id))];
+    });
+  }
+
+  function handleSaved(updated: Track) {
+    setTracks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
   return (
-    <main className="flex min-h-full flex-col items-center justify-center gap-6 p-8 text-center">
-      <div>
-        <h1 className="bg-gradient-to-r from-indigo-300 to-fuchsia-300 bg-clip-text text-5xl font-semibold tracking-tight text-transparent">
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 py-10">
+      <header>
+        <h1 className="bg-gradient-to-r from-indigo-300 to-fuchsia-300 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
           KiddoMusic
         </h1>
-        <p className="mt-3 text-sm text-white/50">
-          Immersive music player — Phase 0 scaffold
+        <p className="mt-1 text-sm text-white/50">
+          Your library — upload audio and it appears below.
         </p>
-      </div>
+      </header>
 
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm">
-        <span
-          className={
-            "inline-block h-2.5 w-2.5 rounded-full " +
-            (health.status === "ok"
-              ? "bg-emerald-400"
-              : health.status === "error"
-                ? "bg-red-400"
-                : "animate-pulse bg-amber-400")
-          }
-        />
-        {health.status === "loading" && <span>Checking API…</span>}
-        {health.status === "ok" && (
-          <span>
-            API healthy ·{" "}
-            <span className="text-white/50">
-              {new Date(health.time).toLocaleTimeString()}
+      <UploadZone onUploaded={handleUploaded} />
+
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-white/40">
+            Library
+          </h2>
+          {tracks.length > 0 && (
+            <span className="text-xs text-white/30">
+              {tracks.length} track{tracks.length > 1 ? "s" : ""}
             </span>
-          </span>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="py-10 text-center text-sm text-white/40">Loading…</p>
+        ) : loadError ? (
+          <p className="py-10 text-center text-sm text-red-400">{loadError}</p>
+        ) : (
+          <TrackList tracks={tracks} onEdit={setEditing} />
         )}
-        {health.status === "error" && (
-          <span className="text-red-300">API unreachable: {health.message}</span>
-        )}
-      </div>
-    </main>
+      </section>
+
+      {editing && (
+        <EditMetadataModal
+          track={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      )}
+    </div>
   );
 }
