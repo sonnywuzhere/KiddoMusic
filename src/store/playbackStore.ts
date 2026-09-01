@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Track } from "../types";
 import { audioEngine } from "../engine/AudioEngine";
+import { mediaSession } from "../engine/mediaSession";
 
 /**
  * Playback state, bound to the shared AudioEngine. Components read this store;
@@ -19,6 +20,8 @@ type PlaybackState = {
   error: string | null;
 
   playTrack: (track: Track, queue?: Track[]) => void;
+  play: () => void;
+  pause: () => void;
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
@@ -44,6 +47,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
     });
     audioEngine.load(track.streamUrl);
     void audioEngine.play();
+    mediaSession.setMetadata(track);
   }
 
   return {
@@ -66,11 +70,20 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       loadIndex(index, q);
     },
 
+    play: () => {
+      const { currentTrack, isPlaying } = get();
+      if (currentTrack && !isPlaying) void audioEngine.play();
+    },
+
+    pause: () => {
+      const { currentTrack, isPlaying } = get();
+      if (currentTrack && isPlaying) audioEngine.pause();
+    },
+
     togglePlay: () => {
-      const { isPlaying, currentTrack } = get();
-      if (!currentTrack) return;
-      if (isPlaying) audioEngine.pause();
-      else void audioEngine.play();
+      const { isPlaying } = get();
+      if (isPlaying) get().pause();
+      else get().play();
     },
 
     next: () => {
@@ -129,6 +142,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       if (newQueue.length === 0) {
         audioEngine.pause();
         audioEngine.load("");
+        mediaSession.clear();
         set({
           currentTrack: null,
           queue: [],
@@ -148,12 +162,22 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
   };
 });
 
-// Wire engine events → store. Done once at module load.
+// Wire engine events → store (and the OS-level media session). Done once at
+// module load.
 audioEngine.setEvents({
-  onTime: (t) => usePlaybackStore.setState({ currentTime: t }),
+  onTime: (t) => {
+    usePlaybackStore.setState({ currentTime: t });
+    mediaSession.setPositionState(usePlaybackStore.getState().duration, t);
+  },
   onDuration: (d) => usePlaybackStore.setState({ duration: d }),
-  onPlay: () => usePlaybackStore.setState({ isPlaying: true, buffering: false }),
-  onPause: () => usePlaybackStore.setState({ isPlaying: false }),
+  onPlay: () => {
+    usePlaybackStore.setState({ isPlaying: true, buffering: false });
+    mediaSession.setPlaybackState("playing");
+  },
+  onPause: () => {
+    usePlaybackStore.setState({ isPlaying: false });
+    mediaSession.setPlaybackState("paused");
+  },
   onWaiting: () => usePlaybackStore.setState({ buffering: true }),
   onCanPlay: () => usePlaybackStore.setState({ buffering: false }),
   onError: (message) =>
@@ -163,7 +187,24 @@ audioEngine.setEvents({
     if (index < queue.length - 1) {
       usePlaybackStore.getState().next();
     } else {
+      // End of queue — track is still loaded, just no longer playing, so the
+      // lock screen should show "paused", not clear the session entirely.
       usePlaybackStore.setState({ isPlaying: false, currentTime: 0 });
+      mediaSession.setPlaybackState("paused");
     }
+  },
+});
+
+// Lock-screen / notification transport controls → the same store actions the
+// on-screen UI uses.
+mediaSession.bindActionHandlers({
+  play: () => usePlaybackStore.getState().play(),
+  pause: () => usePlaybackStore.getState().pause(),
+  previoustrack: () => usePlaybackStore.getState().prev(),
+  nexttrack: () => usePlaybackStore.getState().next(),
+  seek: (seconds) => usePlaybackStore.getState().seek(seconds),
+  seekBy: (delta) => {
+    const { currentTime, duration, seek } = usePlaybackStore.getState();
+    seek(Math.max(0, Math.min(duration, currentTime + delta)));
   },
 });

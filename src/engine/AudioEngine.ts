@@ -49,7 +49,29 @@ export class AudioEngine {
     this.audio.addEventListener("error", () =>
       this.events.onError?.("Playback error — the file may be missing or unsupported."),
     );
+
+    // Mobile browsers can suspend the AudioContext when the tab backgrounds
+    // (screen lock, app switch) even while the <audio> element itself keeps
+    // reporting "playing" — since Web Audio reroutes all its output through
+    // the context, that leaves playback silently stuck: no error, no sound.
+    // Re-resume once we're back in the foreground, but only if we actually
+    // intend to be playing (audio.paused is the same signal onPlay/onPause
+    // already derive from) — never resume a context for a genuinely paused
+    // track. Both events call the same handler, idempotent, as belt-and-
+    // suspenders for inconsistent iOS Safari foregrounding events.
+    document.addEventListener("visibilitychange", this.handleForeground);
+    window.addEventListener("focus", this.handleForeground);
   }
+
+  private handleForeground = () => {
+    if (
+      document.visibilityState === "visible" &&
+      this.ctx?.state === "suspended" &&
+      !this.audio.paused
+    ) {
+      void this.ctx.resume();
+    }
+  };
 
   setEvents(events: AudioEngineEvents) {
     this.events = events;
