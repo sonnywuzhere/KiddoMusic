@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import LibraryView from "./components/Library/LibraryView";
 import AlbumsView from "./components/Albums/AlbumsView";
+import UploadZone from "./components/Upload/UploadZone";
 import MiniPlayer from "./components/MiniPlayer/MiniPlayer";
 import NowPlayingTakeover from "./components/NowPlaying/NowPlayingTakeover";
 import { usePlaybackStore } from "./store/playbackStore";
 
-type Tab = "library" | "albums";
+type Tab = "library" | "albums" | "addSong";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "library", label: "Library" },
+  { id: "albums", label: "Albums" },
+  { id: "addSong", label: "Add song" },
+];
 
 /**
  * Upload + browsable library + custom albums + real playback + the full-screen
@@ -37,23 +44,29 @@ export default function App() {
 
         {/* Tabs */}
         <nav className="flex gap-1 border-b border-white/10">
-          {(["library", "albums"] as Tab[]).map((t) => (
+          {TABS.map(({ id, label }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={id}
+              onClick={() => setTab(id)}
               className={
-                "-mb-px border-b-2 px-4 py-2 text-sm font-medium capitalize transition-colors " +
-                (tab === t
+                "-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors " +
+                (tab === id
                   ? "border-indigo-400 text-white"
                   : "border-transparent text-white/50 hover:text-white/80")
               }
             >
-              {t}
+              {label}
             </button>
           ))}
         </nav>
 
-        {tab === "library" ? <LibraryView /> : <AlbumsView />}
+        {tab === "library" ? (
+          <LibraryView />
+        ) : tab === "albums" ? (
+          <AlbumsView />
+        ) : (
+          <UploadZone onUploaded={() => setTab("library")} />
+        )}
       </div>
 
       <MiniPlayer onExpand={() => setTakeoverOpen(true)} />

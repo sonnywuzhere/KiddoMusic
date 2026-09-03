@@ -22,7 +22,7 @@ export default function EmptyLibrary({ searchTerm }: Props) {
         <>
           <p className="text-sm font-medium text-white/70">Your library is empty</p>
           <p className="max-w-xs text-xs text-white/40">
-            Drag audio files onto the box above, or browse to upload — they'll
+            Head to the "Add song" tab to upload some audio files — they'll
             appear here, ready to play.
           </p>
         </>

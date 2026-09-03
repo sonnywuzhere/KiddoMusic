@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getTracks, deleteTrack, type SortKey, type SortOrder } from "../../api/client";
 import type { Track } from "../../types";
 import { usePlaybackStore } from "../../store/playbackStore";
-import UploadZone from "../Upload/UploadZone";
 import TrackList from "./TrackList";
 import TrackGrid from "./TrackGrid";
 import EditMetadataModal from "./EditMetadataModal";
@@ -54,13 +53,8 @@ export default function LibraryView() {
     void reload();
   }, [reload]);
 
-  // After an upload, jump to the default ordering so new tracks are visible.
   const searchActive = debouncedSearch.trim().length > 0;
   const isEmpty = !loading && !error && tracks.length === 0;
-
-  // Keep a stable ref for onUploaded so UploadZone doesn't re-run effects.
-  const reloadRef = useRef(reload);
-  reloadRef.current = reload;
 
   async function handleDelete(track: Track) {
     if (!window.confirm(`Delete “${track.title}”? This removes the file permanently.`))
@@ -77,8 +71,6 @@ export default function LibraryView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <UploadZone onUploaded={() => void reloadRef.current()} />
-
       <section>
         {/* Toolbar */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
