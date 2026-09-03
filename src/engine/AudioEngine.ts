@@ -5,9 +5,12 @@
  * Why both: the <audio> element gives us native streaming, buffering, and HTTP
  * range-request seeking for free, while the Web Audio graph
  * (MediaElementSource → Analyser → destination) exposes frequency/waveform data
- * for the audio-reactive backdrop in Phase 4. The Web Audio graph is created
- * lazily on first play() so the AudioContext starts inside a user gesture
- * (browser autoplay policy).
+ * for the (currently unused) audio-reactive backdrop. The graph is built
+ * lazily on first getAnalyser() call, NOT on play() — once built, it captures
+ * all of the element's output, and mobile browsers suspend AudioContexts in
+ * the background/on lock, which would otherwise silently kill background
+ * playback. Until something actually calls getAnalyser(), playback stays on
+ * the element's native output path, which backgrounds far more reliably.
  *
  * This lives outside React as a single instance, so playback survives component
  * unmounts/remounts and screen changes (Phase 3 "persist across navigation").
@@ -105,7 +108,19 @@ export class AudioEngine {
   }
 
   async play() {
-    this.ensureGraph();
+    // Deliberately does NOT build the Web Audio graph here. Once
+    // createMediaElementSource() taps this.audio, all of its output is
+    // rerouted through the AudioContext — and mobile Safari/Chrome routinely
+    // suspend that context when the tab backgrounds or the screen locks,
+    // which silences playback even though the <audio> element itself keeps
+    // reporting paused=false (so Media Session still shows "playing" with no
+    // sound reaching the speaker). The analyser this graph exists for
+    // (getAnalyser(), for a future audio-reactive backdrop) has no callers
+    // anywhere in the app yet, so for now playback stays on the element's
+    // native output path, which mobile OSes handle far more reliably in the
+    // background. The graph is still built lazily — see getAnalyser() — for
+    // whenever that feature is actually implemented; revisit this trade-off
+    // then (e.g. only building the graph while the tab is foregrounded).
     if (this.ctx?.state === "suspended") await this.ctx.resume();
     try {
       await this.audio.play();
@@ -135,8 +150,13 @@ export class AudioEngine {
     return Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
   }
 
-  /** For Phase 4 audio-reactive visuals; null until the graph is built. */
+  /**
+   * For Phase 4 audio-reactive visuals. Builds the Web Audio graph on first
+   * call (not on play()) — see the comment in play() for why. Null if Web
+   * Audio itself is unavailable.
+   */
   getAnalyser() {
+    this.ensureGraph();
     return this.analyser;
   }
 }
