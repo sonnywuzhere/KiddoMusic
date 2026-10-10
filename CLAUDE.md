@@ -205,6 +205,35 @@ music-player/
 
 ---
 
+### Offline Downloads (Added Feature)
+*(Added feature — tracks currently always stream from R2 over the network with no local persistence; this adds a per-track offline copy stored in IndexedDB. Built after Background/Lock-Screen Playback. Not yet in PRD.md — consider adding to PRD Section 7 if treated as core v1 scope.)*
+
+- [x] `src/engine/offlineDb.ts` — hand-rolled, promisified IndexedDB wrapper (no `idb` dependency, matching `colorExtraction.ts`'s existing precedent). One object store (`tracks`, keyed by track id) holds a record with both the audio blob and the artwork blob together, since they're always written/read/removed as a unit: `putTrack`, `getTrack`, `deleteTrack`, `listDownloadedIds`.
+- [x] `src/engine/downloadManager.ts` — `downloadTrackForOffline(track, onProgress)`: fetches audio via XHR with `responseType: "blob"` and `xhr.onprogress` (mirrors `uploadTracks`'s existing upload-progress pattern in `api/client.ts`, just the receive side), fetches artwork via plain `fetch` in parallel (small, no progress needed, and a failed artwork fetch never fails the whole download), then writes both through `offlineDb.putTrack`. Wraps `QuotaExceededError` into a plain, user-readable message.
+- [x] `src/store/downloadsStore.ts` — Zustand store holding only *ephemeral UI status* per track id (`none`/`downloading`/`downloaded`/`error` + progress) — IndexedDB (`offlineDb`) remains the actual source of truth for "is this downloaded," so if site data is cleared outside the app this store just goes stale until the next `hydrate()`, which runs once at module load.
+- [x] `src/components/Library/DownloadButton.tsx` — shared 4-state icon button (⬇ not-downloaded / progress-ring downloading / ✓ downloaded-click-to-remove / ! error-click-to-retry), reused by both `TrackList` and `TrackGrid` next to the existing Add-to-album/Edit/Delete row actions. No confirm-before-remove — unlike track deletion, a local copy is low-stakes and instantly redownloadable.
+- [x] `playbackStore.ts` — `loadIndex` is now `async` and always checks `offlineDb.getTrack()` before loading: if a local copy exists it's preferred **regardless of connectivity** (`navigator.onLine` is unreliable — e.g. true on a captive portal with no real internet — so "local copy present" is the only signal trusted for source selection); a shallow-copied `playableTrack` carries `blob:` URLs for `streamUrl`/`artworkUrl` so the pristine, network-URL `Track` objects held in `queue` (and rendered elsewhere, e.g. the library list) are never mutated. A `loadToken` counter guards against a stale async lookup clobbering state from a newer skip. Blob URLs are tracked at module scope and revoked on every subsequent track change and in `removeTrack`'s empty-queue branch, to avoid leaking them.
+- [x] `playbackStore.ts` — offline error messaging: a proactive check in `loadIndex` (no local copy + `navigator.onLine === false`) sets a clear "you're offline and this track isn't downloaded" error before ever hitting the network; the existing `onError` wiring also gets an enrichment for the case where `navigator.onLine` reports `true` but the request still fails. Both reuse the existing `error`-state red-banner UI already rendered in `MiniPlayer` and `NowPlayingTakeover` — no new error UI.
+- [x] `AudioEngine.ts` deliberately untouched — it already accepts any URL string (`blob:` included), and this feature must not reintroduce eager Web Audio graph building in `play()` (that was the fix for the earlier silent-background-playback bug, see above).
+
+**Explicit non-goals for this pass (decided with the user, not silently assumed):** no service worker/Cache API (IndexedDB blobs only — simpler, and doesn't revisit the earlier no-service-worker decision); no bulk "download whole album" yet (the per-track `download(track)` primitive is trivially loop-able later — no architecture change needed when that's wanted); no dedicated Downloads nav view/filter (in-place indicators on existing library rows only); no visible "storage used" indicator (`navigator.storage.estimate()` + summed `size` — noted as a v1.1 idea).
+
+**Done when:** a track can be downloaded from the library (list or grid) with visible progress, plays from the local copy with DevTools set to Offline, survives a page reload, and can be removed to free space (after which it requires network again) — with a clear, specific error message if you try to play a non-downloaded track while offline. ⏳ Implemented and typechecks clean; not yet manually verified in-browser (download progress/checkmark, actual offline playback via DevTools, reload persistence, and removal) — that's the next step, not done in this session.
+
+---
+
+### Shuffle (Added Feature) ✅ COMPLETE
+*(Added feature — playback was linear only. Not yet in PRD.md — consider adding to PRD Section 7.3 if treated as core v1 scope.)*
+
+- [x] `src/store/queueOrder.ts` — Fisher–Yates helpers. Shuffle never restarts the current track. Turning it on keeps already-played history and shuffles only the upcoming tail (and avoids leaving the same song "up next" when there's another choice). Turning it off restores the original context order (library list, album, plus explicit "add to queue" appends) with the playhead on the song that's already playing. Starting a song while shuffle is already on plays that song now and shuffles the rest of its context.
+- [x] `playbackStore.ts` — `shuffle` flag + `toggleShuffle()`. `playTrack` / `addToQueue` / `removeTrack` keep the original order in a module-scoped `sourceQueue`. Next, previous, auto-advance, and lock-screen skip all walk whatever order `queue` is in, so they pick up shuffle without a separate path. An explicit "add to queue" still appends at the end while shuffle is on.
+- [x] Shuffle button in the mini-player (left of previous) and in the Now Playing transport (left of previous, with a matching spacer so play stays centered). Pressed state is `aria-pressed` plus the indigo accent tint. Same store, so the two buttons stay in sync and the mode survives opening and closing the takeover.
+- [x] `AudioEngine.play()` ignores `AbortError`. A fast skip replaces the source while the previous `play()` is still pending; the browser aborts that promise, and reporting it left a false "Couldn't start playback." on screen while audio continued.
+
+**Done when:** with a song playing, turning shuffle on does not restart it, the next song is not the linear successor, previous still returns to what just played, and turning shuffle off makes the next song the original successor again. Choosing another song while shuffle is on shuffles that new context. ✅ Verified in the browser (library of 92 tracks): shuffle on → next left library order, previous returned to the song that was playing, shuffle off → next was the original successor (including two tracks that share a title, distinguished by row), takeover button toggles the same flag, pause still works, and the control stays on screen at 375px with play still centered. No console errors.
+
+---
+
 ### Phase 6 — Groundwork for v2 (optional, do not block v1 on this)
 *(PRD Section 9)*
 
@@ -303,4 +332,11 @@ These aren't blockers, but should be resolved as they come up rather than assume
 - Updated `AudioEngine.ts`'s doc comments (class-level and on `play()`/`getAnalyser()`) to describe the new lazy-on-`getAnalyser()` behavior so this isn't accidentally "fixed" back to eager in a future edit.
 - Not yet re-verified on a physical device — that's the next step, not this session.
 
-**Next:** re-verify background/lock-screen playback on a physical device now that the silent-playback bug is fixed. Then Phase 6 (optional, non-blocking) — v2 groundwork: DB room for future fields (notes, lyrics, mood tags), storage layer swappable for cloud. Then release prep.
+**Shuffle (complete)**
+- **Model:** `queue` is the playback order; `sourceQueue` (module-scoped, not rendered) is the order the listener asked for. Shuffle reorders `queue` only — `loadIndex` is not called — so the current song, its position, and playback keep going. History stays in front of the playhead so Previous still walks back through what already played. Shuffle off copies `sourceQueue` back and moves `index` to the current track's place in that order.
+- **Why the "up next" bias:** a fair shuffle can leave the original successor in front, which makes the button feel broken. When there are at least two candidates, the helper swaps the original successor out of the immediate next slot.
+- **"Add to queue" stays an append** even while shuffle is on. The listener asked for that track; it isn't dropped into a random slot.
+- **False playback error on fast skip:** `audio.play()` rejects with `AbortError` when `load()` replaces the source mid-promise. That rejection was reported as "Couldn't start playback." Found while skipping around a shuffled queue; `play()` now ignores `AbortError` and still reports real failures (missing gesture, bad source).
+- Verified in headless Chrome against the running app: order change, restore, takeover toggle, pause, and 375px layout. Play stays centered because the takeover row has a trailing spacer the same width as the shuffle button.
+
+**Next:** re-verify background/lock-screen playback on a physical device now that the silent-playback bug is fixed. Offline downloads are implemented but not yet manually verified in-browser. Then Phase 6 (optional, non-blocking) — v2 groundwork: DB room for future fields (notes, lyrics, mood tags), storage layer swappable for cloud. Then release prep.

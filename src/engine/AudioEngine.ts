@@ -124,8 +124,11 @@ export class AudioEngine {
     if (this.ctx?.state === "suspended") await this.ctx.resume();
     try {
       await this.audio.play();
-    } catch {
-      // e.g. user gesture missing, or the source failed — surface via onError.
+    } catch (err) {
+      // A skip replaces the source while play() is still pending, and the
+      // browser aborts that promise. That isn't a failure of the track that
+      // just got loaded — surfacing it leaves a false error on screen.
+      if (err instanceof DOMException && err.name === "AbortError") return;
       this.events.onError?.("Couldn't start playback.");
     }
   }

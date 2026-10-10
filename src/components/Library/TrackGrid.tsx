@@ -1,6 +1,7 @@
 import type { Track } from "../../types";
 import { formatDuration } from "../../utils/format";
 import { usePlaybackStore } from "../../store/playbackStore";
+import DownloadButton from "./DownloadButton";
 
 type Props = {
   tracks: Track[];
@@ -43,6 +44,7 @@ export default function TrackGrid({ tracks, onEdit, onAddToAlbum, onDelete }: Pr
                 >
                   ♫
                 </button>
+                <DownloadButton track={track} variant="grid" />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

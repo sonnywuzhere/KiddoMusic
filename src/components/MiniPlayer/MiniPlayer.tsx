@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { formatDuration } from "../../utils/format";
+import ShuffleButton from "../ShuffleButton";
 
 type Props = {
   /** Open the full-screen Now Playing takeover. */
@@ -99,6 +100,7 @@ export default function MiniPlayer({ onExpand }: Props) {
         </span>
 
         <div className="flex items-center gap-1">
+          <ShuffleButton className="h-9 w-9 shrink-0" />
           <ControlButton onClick={prev} disabled={!hasPrev && currentTime <= 3} label="Previous">
             ⏮
           </ControlButton>

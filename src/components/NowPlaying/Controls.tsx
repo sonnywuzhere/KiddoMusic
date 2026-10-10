@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { formatDuration } from "../../utils/format";
+import ShuffleButton from "../ShuffleButton";
 
 type Props = {
   visible: boolean;
@@ -63,8 +64,9 @@ export default function Controls({ visible, onScrubbingChange }: Props) {
         </span>
       </div>
 
-      {/* Transport */}
-      <div className="mt-5 flex items-center justify-center gap-6">
+      {/* Transport. The trailing spacer matches the shuffle button so play stays centered. */}
+      <div className="mt-5 flex items-center justify-center gap-4 sm:gap-6">
+        <ShuffleButton className="h-10 w-10 shrink-0" />
         <button
           onClick={prev}
           aria-label="Previous"
@@ -93,6 +95,7 @@ export default function Controls({ visible, onScrubbingChange }: Props) {
         >
           ⏭
         </button>
+        <span className="h-10 w-10 shrink-0" aria-hidden="true" />
       </div>
     </motion.div>
   );
