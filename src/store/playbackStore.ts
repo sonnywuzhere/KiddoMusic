@@ -24,6 +24,8 @@ type PlaybackState = {
   shuffle: boolean;
 
   playTrack: (track: Track, queue?: Track[]) => void;
+  /** Play a random track from `tracks` now, then the rest in shuffled order. Turns shuffle on. */
+  shufflePlayAll: (tracks: Track[]) => void;
   play: () => void;
   pause: () => void;
   togglePlay: () => void;
@@ -136,6 +138,15 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => {
       const start = Math.max(0, source.findIndex((t) => t.id === track.id));
       sourceQueue = source.slice();
       const playback = buildPlaybackQueue(source, start, get().shuffle);
+      loadIndex(playback.index, playback.queue);
+    },
+
+    shufflePlayAll: (tracks) => {
+      if (tracks.length === 0) return;
+      const start = Math.floor(Math.random() * tracks.length);
+      sourceQueue = tracks.slice();
+      set({ shuffle: true });
+      const playback = buildPlaybackQueue(tracks, start, true);
       loadIndex(playback.index, playback.queue);
     },
 

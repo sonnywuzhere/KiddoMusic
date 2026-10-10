@@ -31,7 +31,10 @@ export default function LibraryView() {
   const [editing, setEditing] = useState<Track | null>(null);
   const [addingToAlbum, setAddingToAlbum] = useState<Track | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [shuffleError, setShuffleError] = useState<string | null>(null);
+  const [startingShuffle, setStartingShuffle] = useState(false);
   const removeFromPlayback = usePlaybackStore((s) => s.removeTrack);
+  const shufflePlayAll = usePlaybackStore((s) => s.shufflePlayAll);
 
   // Debounce the search box so we don't hit the server on every keystroke.
   useEffect(() => {
@@ -55,6 +58,24 @@ export default function LibraryView() {
 
   const searchActive = debouncedSearch.trim().length > 0;
   const isEmpty = !loading && !error && tracks.length === 0;
+  // "All" is the whole library. An empty search result is not an empty library.
+  const libraryEmpty = isEmpty && !searchActive;
+
+  async function handleShufflePlayAll() {
+    if (startingShuffle) return;
+    setStartingShuffle(true);
+    setShuffleError(null);
+    try {
+      // Keep the on-screen sort so turning shuffle off returns to that order,
+      // but ignore an active search — the button plays everything.
+      const all = searchActive ? await getTracks({ sort, order }) : tracks;
+      shufflePlayAll(all);
+    } catch (e) {
+      setShuffleError(e instanceof Error ? e.message : "Couldn't shuffle the library.");
+    } finally {
+      setStartingShuffle(false);
+    }
+  }
 
   async function handleDelete(track: Track) {
     if (!window.confirm(`Delete “${track.title}”? This removes the file permanently.`))
@@ -72,6 +93,16 @@ export default function LibraryView() {
   return (
     <div className="flex flex-col gap-6">
       <section>
+        <button
+          type="button"
+          onClick={() => void handleShufflePlayAll()}
+          disabled={loading || libraryEmpty || startingShuffle}
+          className="mb-4 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:opacity-40"
+        >
+          Shuffle play all
+        </button>
+        {shuffleError && <p className="mb-3 text-sm text-red-400">{shuffleError}</p>}
+
         {/* Toolbar */}
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="relative min-w-[180px] flex-1">
